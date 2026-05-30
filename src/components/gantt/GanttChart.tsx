@@ -58,21 +58,38 @@ export function GanttChart({ activities, stages, contractors, deps }: {
   }, [rows]);
   const bodyH = rows.reduce((h, r) => h + (r.type === 'stage' ? 28 : ROW_H), 0);
 
-  // Month ticks — spacing adapts to zoom so labels never overlap/squeeze.
-  const months = useMemo(() => {
-    const out: { x: number; label: string }[] = [];
-    const monthPx = 30.4 * ppd;
-    const step = Math.max(1, Math.ceil(64 / monthPx));
-    const d = new Date(min); d.setDate(1); d.setMonth(d.getMonth() + 1);
-    let i = 0;
-    while (+d < max) {
-      if (i % step === 0) out.push({ x: xOf(+d), label: d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }) });
-      d.setMonth(d.getMonth() + 1); i++;
+  // Header ticks — granularity follows the zoom level: Week→days, Month→weeks, Quarter/Year→months.
+  const ticks = useMemo(() => {
+    const out: { x: number; label: string; major: boolean }[] = [];
+    if (zoom === 'week') {
+      const d = new Date(min); d.setHours(0, 0, 0, 0);
+      while (+d < max) {
+        const major = d.getDate() === 1;
+        out.push({ x: xOf(+d), label: major ? d.toLocaleDateString('en-GB', { month: 'short' }) : String(d.getDate()), major });
+        d.setDate(d.getDate() + 1);
+      }
+    } else if (zoom === 'month') {
+      const d = new Date(min); d.setDate(1);
+      while (+d < max) {
+        for (const day of [1, 8, 15, 22]) {
+          const t = new Date(d.getFullYear(), d.getMonth(), day);
+          if (+t >= min && +t < max) out.push({ x: xOf(+t), label: day === 1 ? t.toLocaleDateString('en-GB', { month: 'short' }) : String(day), major: day === 1 });
+        }
+        d.setMonth(d.getMonth() + 1);
+      }
+    } else {
+      const monthPx = 30.4 * ppd;
+      const step = Math.max(1, Math.ceil(64 / monthPx));
+      const d = new Date(min); d.setDate(1); d.setMonth(d.getMonth() + 1);
+      let i = 0;
+      while (+d < max) {
+        if (i % step === 0) out.push({ x: xOf(+d), label: d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }), major: d.getMonth() === 0 });
+        d.setMonth(d.getMonth() + 1); i++;
+      }
     }
     return out;
-  }, [min, max, ppd]);
+  }, [zoom, min, max, ppd]);
 
-  // "Today" / status line — defaults to the real date, but can be moved manually.
   const [statusDate, setStatusDate] = useState<string>(isoToday());
   const todayX = xOf(statusDate ? +new Date(statusDate) : Date.now());
 
@@ -110,8 +127,8 @@ export function GanttChart({ activities, stages, contractors, deps }: {
         <div className="rounded-panel border border-border bg-surface shadow-e2 overflow-hidden" style={{ width: LABEL_W + gridW, position: 'relative' }}>
           <div className="sticky top-0 z-10 bg-surface border-b border-border" style={{ height: HEAD_H }}>
             <div className="absolute left-0 top-0 h-full flex items-center px-5 text-[9.5px] font-bold tracking-eyebrow uppercase text-stone" style={{ width: LABEL_W }}>Phase / Activity</div>
-            {months.map((m, i) => (
-              <div key={i} className="absolute top-0 h-full border-l border-border text-[10px] text-stone num pl-1 pt-1.5" style={{ left: LABEL_W + m.x }}>{m.label}</div>
+            {ticks.map((t, i) => (
+              <div key={i} className={`absolute top-0 h-full num pl-1 pt-1.5 text-[10px] ${t.major ? 'border-l border-border text-bark font-medium' : 'text-stone/60'}`} style={{ left: LABEL_W + t.x }}>{t.label}</div>
             ))}
           </div>
 
