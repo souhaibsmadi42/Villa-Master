@@ -29,10 +29,13 @@ export function GanttChart({ activities, stages, contractors, deps }: {
   const ppd = PX_PER_DAY[zoom];
   const colorOf = useMemo(() => Object.fromEntries(contractors.map(c => [c.id, c.color])), [contractors]);
 
+  // Time bounds — snapped to whole months (starts on the 1st, no stray days from the previous month).
   const { min, max } = useMemo(() => {
     let lo = Infinity, hi = -Infinity;
     for (const a of activities) { lo = Math.min(lo, +new Date(a.start_date)); hi = Math.max(hi, +new Date(a.end_date)); }
-    return { min: lo - 7 * DAY, max: hi + 7 * DAY };
+    const loD = new Date(lo); loD.setDate(1); loD.setHours(0, 0, 0, 0);
+    const hiD = new Date(hi); hiD.setMonth(hiD.getMonth() + 1, 1); hiD.setHours(0, 0, 0, 0);
+    return { min: +loD, max: +hiD };
   }, [activities]);
   const totalDays = Math.max(1, Math.round((max - min) / DAY));
   const gridW = totalDays * ppd;
