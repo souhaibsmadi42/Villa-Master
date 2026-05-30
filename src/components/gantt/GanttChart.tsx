@@ -1,7 +1,9 @@
 'use client';
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTimeline, PX_PER_DAY, type Zoom } from '@/stores/timeline';
+
+const isoToday = () => new Date().toISOString().slice(0, 10);
 
 export type GanttActivity = {
   id: string; name: string; stage_id: string | null; contractor_id: string | null;
@@ -56,14 +58,23 @@ export function GanttChart({ activities, stages, contractors, deps }: {
   }, [rows]);
   const bodyH = rows.reduce((h, r) => h + (r.type === 'stage' ? 28 : ROW_H), 0);
 
+  // Month ticks — spacing adapts to zoom so labels never overlap/squeeze.
   const months = useMemo(() => {
     const out: { x: number; label: string }[] = [];
+    const monthPx = 30.4 * ppd;
+    const step = Math.max(1, Math.ceil(64 / monthPx));
     const d = new Date(min); d.setDate(1); d.setMonth(d.getMonth() + 1);
-    while (+d < max) { out.push({ x: xOf(+d), label: d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }) }); d.setMonth(d.getMonth() + 1); }
+    let i = 0;
+    while (+d < max) {
+      if (i % step === 0) out.push({ x: xOf(+d), label: d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }) });
+      d.setMonth(d.getMonth() + 1); i++;
+    }
     return out;
   }, [min, max, ppd]);
 
-  const todayX = xOf(Date.now());
+  // "Today" / status line — defaults to the real date, but can be moved manually.
+  const [statusDate, setStatusDate] = useState<string>(isoToday());
+  const todayX = xOf(statusDate ? +new Date(statusDate) : Date.now());
 
   const drag = useRef<{ x: number; left: number } | null>(null);
   function onDown(e: React.MouseEvent) { if (!scrollRef.current) return; drag.current = { x: e.clientX, left: scrollRef.current.scrollLeft }; }
@@ -84,6 +95,10 @@ export function GanttChart({ activities, stages, contractors, deps }: {
         </div>
         <label className="flex items-center gap-1.5 text-[11.5px] text-stone"><input type="checkbox" checked={showBaseline} onChange={toggleBaseline} /> Baseline</label>
         <label className="flex items-center gap-1.5 text-[11.5px] text-stone"><input type="checkbox" checked={showCritical} onChange={toggleCritical} /> Critical path</label>
+        <label className="flex items-center gap-1.5 text-[11.5px] text-stone">Today line
+          <input type="date" value={statusDate} onChange={e => setStatusDate(e.target.value)}
+            className="rounded-lg border border-border bg-surface px-2 py-1 text-[11px] num" />
+        </label>
         <div className="flex flex-wrap gap-1.5 ml-auto">
           <Chip active={!contractorFilter} onClick={() => setContractor(null)} color="#7A9E7E" label="All" />
           {contractors.map(c => <Chip key={c.id} active={contractorFilter === c.id} onClick={() => setContractor(c.id)} color={c.color} label={c.name} />)}
