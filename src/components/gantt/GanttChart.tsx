@@ -58,7 +58,7 @@ export function GanttChart({ activities, stages, contractors, deps }: {
   }, [rows]);
   const bodyH = rows.reduce((h, r) => h + (r.type === 'stage' ? 28 : ROW_H), 0);
 
-  // Header ticks — granularity follows the zoom level: Week→days, Month→weeks, Quarter/Year→months.
+  // Header ticks — granularity + minor/major follow the zoom level.
   const ticks = useMemo(() => {
     const out: { x: number; label: string; major: boolean }[] = [];
     if (zoom === 'week') {
@@ -77,14 +77,19 @@ export function GanttChart({ activities, stages, contractors, deps }: {
         }
         d.setMonth(d.getMonth() + 1);
       }
-    } else {
-      const monthPx = 30.4 * ppd;
-      const step = Math.max(1, Math.ceil(64 / monthPx));
-      const d = new Date(min); d.setDate(1); d.setMonth(d.getMonth() + 1);
-      let i = 0;
+    } else if (zoom === 'quarter') {
+      const d = new Date(min); d.setDate(1);
       while (+d < max) {
-        if (i % step === 0) out.push({ x: xOf(+d), label: d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }), major: d.getMonth() === 0 });
-        d.setMonth(d.getMonth() + 1); i++;
+        const major = d.getMonth() % 3 === 0;
+        out.push({ x: xOf(+d), label: major ? d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }) : d.toLocaleDateString('en-GB', { month: 'short' }), major });
+        d.setMonth(d.getMonth() + 1);
+      }
+    } else {
+      const d = new Date(min); d.setDate(1);
+      while (+d < max) {
+        const isYear = d.getMonth() === 0, isQuarter = d.getMonth() % 3 === 0;
+        out.push({ x: xOf(+d), label: isYear ? String(d.getFullYear()) : (isQuarter ? d.toLocaleDateString('en-GB', { month: 'short' }) : ''), major: isQuarter });
+        d.setMonth(d.getMonth() + 1);
       }
     }
     return out;
@@ -128,11 +133,18 @@ export function GanttChart({ activities, stages, contractors, deps }: {
           <div className="sticky top-0 z-10 bg-surface border-b border-border" style={{ height: HEAD_H }}>
             <div className="absolute left-0 top-0 h-full flex items-center px-5 text-[9.5px] font-bold tracking-eyebrow uppercase text-stone" style={{ width: LABEL_W }}>Phase / Activity</div>
             {ticks.map((t, i) => (
-              <div key={i} className={`absolute top-0 h-full num pl-1 pt-1.5 text-[10px] ${t.major ? 'border-l border-border text-bark font-medium' : 'text-stone/60'}`} style={{ left: LABEL_W + t.x }}>{t.label}</div>
+              <div key={i} className={`absolute top-0 h-full num pl-1 pt-1.5 text-[10px] border-l ${t.major ? 'border-border-2 text-bark font-medium' : 'border-border/40 text-stone/55'}`} style={{ left: LABEL_W + t.x }}>{t.label}</div>
             ))}
           </div>
 
           <div style={{ position: 'relative', height: bodyH }}>
+            <svg className="absolute pointer-events-none" style={{ left: LABEL_W, top: 0, width: gridW, height: bodyH }}>
+              {ticks.map((t, i) => (
+                <line key={i} x1={t.x} y1={0} x2={t.x} y2={bodyH}
+                  stroke={t.major ? 'var(--c-border-2)' : 'var(--c-border)'}
+                  strokeWidth={1} strokeOpacity={t.major ? 0.65 : 0.28} />
+              ))}
+            </svg>
             <svg className="absolute pointer-events-none" style={{ left: LABEL_W, top: 0, width: gridW, height: bodyH, overflow: 'visible' }}>
               {deps.map((d, i) => {
                 const p = activities.find(a => a.id === d.predecessor_id), s = activities.find(a => a.id === d.successor_id);
@@ -178,11 +190,11 @@ export function GanttChart({ activities, stages, contractors, deps }: {
                     <div className="absolute rounded-full" style={{ left: LABEL_W + xOf(a.baseline_start), width: Math.max(4, xOf(a.baseline_end) - xOf(a.baseline_start)), top: ROW_H - 7, height: 3, background: 'var(--c-stone)', opacity: dim ? 0.12 : 0.35 }} />
                   )}
                   <button onClick={() => router.push(`/activities/${a.id}`)} title={`${a.name} · ${a.progress}% complete`}
-                    className="absolute rounded-md overflow-hidden shadow-e1 hover:shadow-e2 hover:-translate-y-px transition-all"
-                    style={{ left: LABEL_W + bx, width: bw, top: 7, height: 18, opacity: dim ? 0.2 : 1, outline: showCritical && a.is_critical ? '1.5px solid var(--c-iron)' : 'none', outlineOffset: 1 }}>
-                    <span className="absolute inset-0" style={{ background: barColor, opacity: 0.22 }} />
-                    <span className="absolute inset-y-0 left-0" style={{ width: `${Math.max(2, a.progress)}%`, background: barColor }} />
-                    {bw > 42 && <span className="absolute inset-0 flex items-center px-2 text-[9.5px] num font-medium" style={{ color: a.progress > 55 ? '#fff' : 'var(--c-bark)' }}>{a.progress}%</span>}
+                    className="absolute rounded-[5px] overflow-hidden ring-1 ring-black/[0.05] hover:-translate-y-px transition-transform"
+                    style={{ left: LABEL_W + bx, width: bw, top: 8, height: 16, opacity: dim ? 0.25 : 1, outline: showCritical && a.is_critical ? '1.5px solid var(--c-iron)' : 'none', outlineOffset: 1 }}>
+                    <span className="absolute inset-0" style={{ background: barColor, opacity: 0.2 }} />
+                    <span className="absolute inset-y-0 left-0" style={{ width: `${a.progress}%`, background: barColor }} />
+                    {bw > 44 && a.progress > 0 && <span className="absolute inset-0 flex items-center px-2 text-[9.5px] num font-medium" style={{ color: a.progress > 55 ? '#fff' : 'var(--c-bark)' }}>{a.progress}%</span>}
                   </button>
                 </div>
               );
