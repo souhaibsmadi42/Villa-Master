@@ -124,41 +124,56 @@ export function GanttChart({ activities, stages, contractors, deps }: {
                 <defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="var(--c-stone)" fillOpacity="0.5" /></marker></defs>
               </svg>
 
-              {/* today line */}
+              {/* today line + flag */}
               {todayX >= 0 && todayX <= gridW && (
-                <div className="absolute top-0 w-px bg-iron/70 z-[5]" style={{ left: LABEL_W + todayX, height: bodyH }} />
+                <div className="absolute top-0 z-[5]" style={{ left: LABEL_W + todayX, height: bodyH }}>
+                  <div className="absolute top-0 w-0.5 bg-iron" style={{ height: bodyH }} />
+                  <div className="absolute -top-px -translate-x-1/2 rounded-full bg-iron text-white text-[8.5px] font-bold tracking-wide px-1.5 py-0.5 whitespace-nowrap">TODAY</div>
+                </div>
               )}
 
               {/* rows */}
               {(() => { let y = 0; return rows.map((r, idx) => {
                 if (r.type === 'stage') { const top = y; y += 28; return (
-                  <div key={`s${idx}`} className="absolute left-0 flex items-center px-5 font-display text-[15px] font-semibold text-bark bg-surface-3 border-y border-sand" style={{ top, height: 28, width: LABEL_W + gridW }}>{r.name}</div>
+                  <div key={`s${idx}`} className="absolute left-0 flex items-center px-5 font-display text-[15px] font-semibold text-bark bg-gradient-to-r from-surface-3 to-surface-2 border-y border-border z-[3]" style={{ top, height: 28, width: LABEL_W + gridW }}>{r.name}</div>
                 ); }
                 const a = r.a; const top = y; y += ROW_H;
                 const bx = xOf(a.start_date), bw = Math.max(4, xOf(a.end_date) - xOf(a.start_date));
                 const base = colorOf[a.contractor_id ?? ''] ?? '#8C7B6B';
                 const dim = showCritical && !a.is_critical;
+                const barColor = statusColor(a, base);
                 return (
                   <div key={a.id} className="absolute left-0 group" style={{ top, height: ROW_H, width: LABEL_W + gridW }}>
-                    <div className="absolute left-0 h-full flex items-center px-5 border-b border-border bg-surface group-hover:bg-surface-2" style={{ width: LABEL_W }}>
-                      <button onClick={() => router.push(`/activities/${a.id}`)} className="text-left">
-                        <div className="text-[12.5px] text-text leading-tight line-clamp-1">{a.name}</div>
-                        <div className="num text-[10px] text-stone">{a.progress}%</div>
+                    {/* full-row hover highlight */}
+                    <div className="absolute inset-0 group-hover:bg-olive/[0.05] transition-colors" style={{ left: LABEL_W, width: gridW }} />
+                    <div className="absolute h-full border-b border-border/70" style={{ left: LABEL_W, width: gridW }} />
+                    {/* sticky label */}
+                    <div className="absolute left-0 h-full flex items-center px-5 border-b border-border/70 bg-surface group-hover:bg-surface-2 transition-colors z-[2]" style={{ width: LABEL_W }}>
+                      <button onClick={() => router.push(`/activities/${a.id}`)} className="text-left w-full">
+                        <div className="text-[12.5px] text-text leading-tight line-clamp-1 group-hover:text-olive transition-colors">{a.name}</div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="h-1.5 w-1.5 rounded-sm shrink-0" style={{ background: base }} />
+                          <span className="num text-[10px] text-stone">{a.progress}%</span>
+                          {a.is_critical && <span className="text-[8.5px] font-bold tracking-wide uppercase text-iron">crit</span>}
+                        </div>
                       </button>
                     </div>
-                    <div className="absolute h-full border-b border-border" style={{ left: LABEL_W, width: gridW }} />
                     {/* baseline ghost */}
                     {showBaseline && a.baseline_start && a.baseline_end && (
-                      <div className="absolute rounded-[3px] border border-stone/40" style={{ left: LABEL_W + xOf(a.baseline_start), width: Math.max(4, xOf(a.baseline_end) - xOf(a.baseline_start)), top: top + ROW_H - 9, height: 5, background: 'repeating-linear-gradient(45deg,var(--c-sand),var(--c-sand) 3px,transparent 3px,transparent 6px)', opacity: dim ? 0.15 : 0.6 }} />
+                      <div className="absolute rounded-full" style={{ left: LABEL_W + xOf(a.baseline_start), width: Math.max(4, xOf(a.baseline_end) - xOf(a.baseline_start)), top: top + ROW_H - 7, height: 3, background: 'var(--c-stone)', opacity: dim ? 0.12 : 0.35 }} />
                     )}
-                    {/* actual/planned bar */}
-                    <button onClick={() => router.push(`/activities/${a.id}`)} title={`${a.name} · ${a.progress}%`}
-                      className="absolute rounded-[5px] transition" style={{
-                        left: LABEL_W + bx, width: bw, top: top + 8, height: 16,
-                        background: statusColor(a, base), opacity: dim ? 0.18 : 0.9,
-                        boxShadow: showCritical && a.is_critical ? '0 0 0 2px var(--c-iron)' : 'none',
+                    {/* bar: light track + solid progress fill */}
+                    <button onClick={() => router.push(`/activities/${a.id}`)} title={`${a.name} · ${a.progress}% complete`}
+                      className="absolute rounded-md overflow-hidden shadow-e1 hover:shadow-e2 hover:-translate-y-px transition-all"
+                      style={{
+                        left: LABEL_W + bx, width: bw, top: top + 7, height: 18,
+                        opacity: dim ? 0.2 : 1,
+                        outline: showCritical && a.is_critical ? '1.5px solid var(--c-iron)' : 'none',
+                        outlineOffset: 1,
                       }}>
-                      <span className="absolute inset-y-0 left-0 rounded-[5px] bg-black/15" style={{ width: `${a.progress}%` }} />
+                      <span className="absolute inset-0" style={{ background: barColor, opacity: 0.22 }} />
+                      <span className="absolute inset-y-0 left-0" style={{ width: `${Math.max(2, a.progress)}%`, background: barColor }} />
+                      {bw > 42 && <span className="absolute inset-0 flex items-center px-2 text-[9.5px] num font-medium" style={{ color: a.progress > 55 ? '#fff' : 'var(--c-bark)' }}>{a.progress}%</span>}
                     </button>
                   </div>
                 );
