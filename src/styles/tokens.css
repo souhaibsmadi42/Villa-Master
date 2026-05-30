@@ -1,0 +1,54 @@
+/* Villa Ajloun — design tokens */
+:root {
+  /* Color — Ajloun Stone */
+  --c-cream:      #F8F5F0;
+  --c-sand:       #E8DCC0;
+  --c-stone:      #8C7B6B;
+  --c-bark:       #4A3728;
+  --c-ink:        #1E1410;
+  --c-olive:      #7A9E7E;
+  --c-olive-mist: #C5D9C7;
+  --c-sun:        #C4853A;
+  --c-iron:       #B06070;
+  --c-brass:      #C9A877;
+
+  /* Glass */
+  --glass-bg:     rgba(255,255,255,0.62);
+  --glass-stroke: rgba(74,55,40,0.08);
+
+  /* Elevation */
+  --e1: 0 1px 2px rgba(20,12,8,.04), 0 1px 3px rgba(20,12,8,.06);
+  --e2: 0 4px 12px rgba(20,12,8,.06), 0 2px 4px rgba(20,12,8,.04);
+  --e3: 0 12px 32px rgba(20,12,8,.08), 0 4px 12px rgba(20,12,8,.06);
+  --e4: 0 24px 60px rgba(20,12,8,.12), 0 8px 20px rgba(20,12,8,.06);
+  --e5: 0 40px 100px rgba(20,12,8,.16), 0 16px 40px rgba(20,12,8,.08);
+
+  /* Motion */
+  --m-tap:       120ms;
+  --m-glide:     280ms;
+  --m-swoop:     480ms;
+  --m-cinematic: 900ms;
+  --ease-glide:     cubic-bezier(.22,.61,.36,1);
+  --ease-swoop:     cubic-bezier(.16,1,.3,1);
+  --ease-cinematic: cubic-bezier(.85,0,.15,1);
+}
+
+[data-theme="dark"] {
+  --c-cream:      #14110E;
+  --c-sand:       #2A221A;
+  --c-stone:      #9C8F7E;
+  --c-bark:       #E8DCC8;
+  --c-ink:        #F5EBDA;
+  --c-olive:      #A8C8AC;
+  --c-olive-mist: #2A3A2D;
+  --c-sun:        #E0A56A;
+  --c-iron:       #D08A98;
+  --c-brass:      #D9BC8C;
+  --glass-bg:     rgba(27,23,20,0.62);
+  --glass-stroke: rgba(232,220,200,0.08);
+  --e1: 0 1px 2px rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.2);
+  --e2: 0 4px 12px rgba(0,0,0,.3), 0 2px 4px rgba(0,0,0,.2);
+  --e3: 0 12px 32px rgba(0,0,0,.4), 0 4px 12px rgba(0,0,0,.25);
+  --e4: 0 24px 60px rgba(0,0,0,.5), 0 8px 20px rgba(0,0,0,.3);
+  --e5: 0 40px 100px rgba(0,0,0,.55), 0 16px 40px rgba(0,0,0,.35);
+}
