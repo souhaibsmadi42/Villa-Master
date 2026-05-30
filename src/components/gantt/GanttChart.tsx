@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTimeline, PX_PER_DAY, type Zoom } from '@/stores/timeline';
 
@@ -27,27 +27,23 @@ export function GanttChart({ activities, stages, contractors, deps }: {
   const ppd = PX_PER_DAY[zoom];
   const colorOf = useMemo(() => Object.fromEntries(contractors.map(c => [c.id, c.color])), [contractors]);
 
-  // Time bounds
   const { min, max } = useMemo(() => {
     let lo = Infinity, hi = -Infinity;
     for (const a of activities) { lo = Math.min(lo, +new Date(a.start_date)); hi = Math.max(hi, +new Date(a.end_date)); }
-    // pad 7 days each side
     return { min: lo - 7 * DAY, max: hi + 7 * DAY };
   }, [activities]);
   const totalDays = Math.max(1, Math.round((max - min) / DAY));
   const gridW = totalDays * ppd;
   const xOf = (d: string | number) => ((+new Date(d) - min) / DAY) * ppd;
 
-  // Rows: stage header then its activities (filtered), keeping a flat render order for dependency math.
   const rows = useMemo(() => {
-    const out: Array<{ type: 'stage'; name: string } | { type: 'act'; a: GanttActivity; rowIndex: number }> = [];
-    let rowIndex = 0;
+    const out: Array<{ type: 'stage'; name: string } | { type: 'act'; a: GanttActivity }> = [];
     const sorted = [...stages].sort((s1, s2) => s1.ord - s2.ord);
     for (const st of sorted) {
       const acts = activities.filter(a => a.stage_id === st.id && (!contractorFilter || a.contractor_id === contractorFilter));
       if (!acts.length) continue;
       out.push({ type: 'stage', name: st.name });
-      for (const a of acts) { out.push({ type: 'act', a, rowIndex }); rowIndex++; }
+      for (const a of acts) out.push({ type: 'act', a });
     }
     return out;
   }, [activities, stages, contractorFilter]);
@@ -60,7 +56,6 @@ export function GanttChart({ activities, stages, contractors, deps }: {
   }, [rows]);
   const bodyH = rows.reduce((h, r) => h + (r.type === 'stage' ? 28 : ROW_H), 0);
 
-  // Month ticks
   const months = useMemo(() => {
     const out: { x: number; label: string }[] = [];
     const d = new Date(min); d.setDate(1); d.setMonth(d.getMonth() + 1);
@@ -70,7 +65,6 @@ export function GanttChart({ activities, stages, contractors, deps }: {
 
   const todayX = xOf(Date.now());
 
-  // Drag-to-scroll (mouse)
   const drag = useRef<{ x: number; left: number } | null>(null);
   function onDown(e: React.MouseEvent) { if (!scrollRef.current) return; drag.current = { x: e.clientX, left: scrollRef.current.scrollLeft }; }
   function onMove(e: React.MouseEvent) { if (!drag.current || !scrollRef.current) return; scrollRef.current.scrollLeft = drag.current.left - (e.clientX - drag.current.x); }
@@ -81,7 +75,6 @@ export function GanttChart({ activities, stages, contractors, deps }: {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1 rounded-full border border-border bg-surface p-1">
           {(['year', 'quarter', 'month', 'week'] as Zoom[]).map(z => (
@@ -97,12 +90,10 @@ export function GanttChart({ activities, stages, contractors, deps }: {
         </div>
       </div>
 
-      {/* Gantt */}
       <div className="rounded-panel border border-border bg-surface shadow-e2 overflow-hidden">
         <div ref={scrollRef} className="overflow-x-auto cursor-grab active:cursor-grabbing select-none"
           onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}>
           <div style={{ width: LABEL_W + gridW, position: 'relative' }}>
-            {/* Header */}
             <div className="sticky top-0 z-10 bg-surface border-b border-border" style={{ height: HEAD_H }}>
               <div className="absolute left-0 top-0 h-full flex items-center px-5 text-[9.5px] font-bold tracking-eyebrow uppercase text-stone" style={{ width: LABEL_W }}>Phase / Activity</div>
               {months.map((m, i) => (
@@ -110,9 +101,7 @@ export function GanttChart({ activities, stages, contractors, deps }: {
               ))}
             </div>
 
-            {/* Body */}
             <div style={{ position: 'relative', height: bodyH }}>
-              {/* dependency layer */}
               <svg className="absolute pointer-events-none" style={{ left: LABEL_W, top: 0, width: gridW, height: bodyH, overflow: 'visible' }}>
                 {deps.map((d, i) => {
                   const p = activities.find(a => a.id === d.predecessor_id), s = activities.find(a => a.id === d.successor_id);
@@ -124,7 +113,6 @@ export function GanttChart({ activities, stages, contractors, deps }: {
                 <defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="var(--c-stone)" fillOpacity="0.5" /></marker></defs>
               </svg>
 
-              {/* today line + flag */}
               {todayX >= 0 && todayX <= gridW && (
                 <div className="absolute top-0 z-[5]" style={{ left: LABEL_W + todayX, height: bodyH }}>
                   <div className="absolute top-0 w-0.5 bg-iron" style={{ height: bodyH }} />
@@ -132,7 +120,6 @@ export function GanttChart({ activities, stages, contractors, deps }: {
                 </div>
               )}
 
-              {/* rows */}
               {(() => { let y = 0; return rows.map((r, idx) => {
                 if (r.type === 'stage') { const top = y; y += 28; return (
                   <div key={`s${idx}`} className="absolute left-0 flex items-center px-5 font-display text-[15px] font-semibold text-bark bg-gradient-to-r from-surface-3 to-surface-2 border-y border-border z-[3]" style={{ top, height: 28, width: LABEL_W + gridW }}>{r.name}</div>
@@ -144,10 +131,8 @@ export function GanttChart({ activities, stages, contractors, deps }: {
                 const barColor = statusColor(a, base);
                 return (
                   <div key={a.id} className="absolute left-0 group" style={{ top, height: ROW_H, width: LABEL_W + gridW }}>
-                    {/* full-row hover highlight */}
                     <div className="absolute inset-0 group-hover:bg-olive/[0.05] transition-colors" style={{ left: LABEL_W, width: gridW }} />
                     <div className="absolute h-full border-b border-border/70" style={{ left: LABEL_W, width: gridW }} />
-                    {/* sticky label */}
                     <div className="absolute left-0 h-full flex items-center px-5 border-b border-border/70 bg-surface group-hover:bg-surface-2 transition-colors z-[2]" style={{ width: LABEL_W }}>
                       <button onClick={() => router.push(`/activities/${a.id}`)} className="text-left w-full">
                         <div className="text-[12.5px] text-text leading-tight line-clamp-1 group-hover:text-olive transition-colors">{a.name}</div>
@@ -158,19 +143,12 @@ export function GanttChart({ activities, stages, contractors, deps }: {
                         </div>
                       </button>
                     </div>
-                    {/* baseline ghost */}
                     {showBaseline && a.baseline_start && a.baseline_end && (
-                      <div className="absolute rounded-full" style={{ left: LABEL_W + xOf(a.baseline_start), width: Math.max(4, xOf(a.baseline_end) - xOf(a.baseline_start)), top: top + ROW_H - 7, height: 3, background: 'var(--c-stone)', opacity: dim ? 0.12 : 0.35 }} />
+                      <div className="absolute rounded-full" style={{ left: LABEL_W + xOf(a.baseline_start), width: Math.max(4, xOf(a.baseline_end) - xOf(a.baseline_start)), top: ROW_H - 7, height: 3, background: 'var(--c-stone)', opacity: dim ? 0.12 : 0.35 }} />
                     )}
-                    {/* bar: light track + solid progress fill */}
                     <button onClick={() => router.push(`/activities/${a.id}`)} title={`${a.name} · ${a.progress}% complete`}
                       className="absolute rounded-md overflow-hidden shadow-e1 hover:shadow-e2 hover:-translate-y-px transition-all"
-                      style={{
-                        left: LABEL_W + bx, width: bw, top: top + 7, height: 18,
-                        opacity: dim ? 0.2 : 1,
-                        outline: showCritical && a.is_critical ? '1.5px solid var(--c-iron)' : 'none',
-                        outlineOffset: 1,
-                      }}>
+                      style={{ left: LABEL_W + bx, width: bw, top: 7, height: 18, opacity: dim ? 0.2 : 1, outline: showCritical && a.is_critical ? '1.5px solid var(--c-iron)' : 'none', outlineOffset: 1 }}>
                       <span className="absolute inset-0" style={{ background: barColor, opacity: 0.22 }} />
                       <span className="absolute inset-y-0 left-0" style={{ width: `${Math.max(2, a.progress)}%`, background: barColor }} />
                       {bw > 42 && <span className="absolute inset-0 flex items-center px-2 text-[9.5px] num font-medium" style={{ color: a.progress > 55 ? '#fff' : 'var(--c-bark)' }}>{a.progress}%</span>}
@@ -182,7 +160,7 @@ export function GanttChart({ activities, stages, contractors, deps }: {
           </div>
         </div>
       </div>
-      <p className="text-[11px] text-stone">Drag to scroll · click a bar to open the activity · striped = baseline, solid = plan, dark fill = % complete.</p>
+      <p className="text-[11px] text-stone">Drag to scroll · click a bar to open the activity · the line under each bar is its baseline.</p>
     </div>
   );
 }
