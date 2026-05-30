@@ -68,6 +68,22 @@
     text-transform: uppercase; color: var(--c-stone);
   }
   .num { font-family: var(--font-mono), 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+/* Soft scrollbar everywhere */
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-thumb { background: var(--c-border-2); border-radius: 8px; border: 2px solid var(--c-surface); }
+::-webkit-scrollbar-thumb:hover { background: var(--c-stone); }
+
+/* App page background — subtle warm wash instead of flat */
+.app-bg {
+  background:
+    radial-gradient(900px 500px at 100% -5%, color-mix(in oklab, var(--c-olive) 9%, transparent), transparent 60%),
+    radial-gradient(800px 480px at -10% 8%, color-mix(in oklab, var(--c-brass) 8%, transparent), transparent 55%),
+    var(--c-cream);
+  background-attachment: fixed;
 }
 
 .hero-ambient {

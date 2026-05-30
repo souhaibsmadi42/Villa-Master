@@ -1,8 +1,9 @@
 'use client';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Pill } from '@/components/ui/Pill';
+import { ThemeToggle } from '@/components/chrome/ThemeToggle';
 import type { Role } from '@/lib/rbac';
 
 const NAV: { href: string; label: string; roles: Role[] }[] = [
@@ -20,31 +21,42 @@ const NAV: { href: string; label: string; roles: Role[] }[] = [
 
 export function AppHeader({ email, role }: { email: string; role: Role }) {
   const router = useRouter();
+  const pathname = usePathname();
   const supabase = createClient();
+
   async function signOut() {
     await supabase.auth.signOut();
     router.push('/login'); router.refresh();
   }
+
   return (
-    <header className="sticky top-0 z-50 glass border-b border-[var(--glass-stroke)]">
-      <div className="flex items-center gap-4 px-5 h-14">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <span className="h-7 w-7 rounded-lg bg-gradient-to-br from-bark to-olive text-cream grid place-items-center font-display text-[14px]">V</span>
-          <span className="font-display text-[16px] hidden sm:block">Villa Ajloun</span>
+    <header className="sticky top-0 z-50 glass border-b border-[var(--glass-stroke)] shadow-e1">
+      <div className="flex items-center gap-4 px-5 h-16">
+        <Link href="/dashboard" className="flex items-center gap-2.5 shrink-0">
+          <span className="h-8 w-8 rounded-[10px] bg-gradient-to-br from-bark to-olive text-cream grid place-items-center font-display text-[15px] shadow-e1">V</span>
+          <span className="font-display text-[17px] hidden sm:block leading-none">Villa Ajloun</span>
         </Link>
-        <nav className="flex items-center gap-1 overflow-x-auto">
-          {NAV.filter(n => n.roles.includes(role)).map(n => (
-            <Link key={n.href} href={n.href}
-              className="px-3 py-1.5 rounded-full text-[12.5px] font-medium text-stone hover:text-ink hover:bg-sand/40 transition">
-              {n.label}
-            </Link>
-          ))}
+
+        <nav className="flex items-center gap-0.5 overflow-x-auto no-scrollbar">
+          {NAV.filter(n => n.roles.includes(role)).map(n => {
+            const active = pathname === n.href || pathname.startsWith(n.href + '/');
+            return (
+              <Link key={n.href} href={n.href}
+                className={`px-3 py-1.5 rounded-full text-[12.5px] font-medium whitespace-nowrap transition ${
+                  active ? 'bg-bark text-cream shadow-e1' : 'text-stone hover:text-ink hover:bg-sand/40'
+                }`}>
+                {n.label}
+              </Link>
+            );
+          })}
         </nav>
-        <div className="ml-auto flex items-center gap-3">
-          <Pill tone="olive">{role}</Pill>
-          <span className="text-[12px] text-stone hidden md:block max-w-[180px] truncate">{email}</span>
+
+        <div className="ml-auto flex items-center gap-2.5 shrink-0">
+          <ThemeToggle />
+          <Pill tone="olive" className="hidden sm:inline-flex">{role}</Pill>
+          <span className="text-[12px] text-stone hidden lg:block max-w-[160px] truncate">{email}</span>
           <button onClick={signOut}
-            className="rounded-full border border-iron/40 text-iron px-3 py-1 text-[10.5px] font-bold uppercase tracking-wide hover:bg-iron hover:text-white transition">
+            className="rounded-full border border-iron/40 text-iron px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-wide hover:bg-iron hover:text-white transition">
             Sign out
           </button>
         </div>

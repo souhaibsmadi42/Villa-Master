@@ -8,7 +8,7 @@ export default async function AppLayout({ children, modal }: { children: React.R
   if (!profile) redirect('/login');
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen app-bg">
       <AppHeader email={profile.email} role={profile.role} />
       <main className="mx-auto max-w-[1280px] px-5 py-8">{children}</main>
       {modal}
