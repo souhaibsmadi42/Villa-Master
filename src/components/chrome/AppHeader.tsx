@@ -3,6 +3,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Pill } from '@/components/ui/Pill';
+import { ThemeToggle } from '@/components/chrome/ThemeToggle';
 import type { Role } from '@/lib/rbac';
 
 const NAV: { href: string; label: string; roles: Role[] }[] = [
@@ -51,6 +52,7 @@ export function AppHeader({ email, role }: { email: string; role: Role }) {
         </nav>
 
         <div className="ml-auto flex items-center gap-2.5 shrink-0">
+          <ThemeToggle />
           <Pill tone="olive" className="hidden sm:inline-flex">{role}</Pill>
           <span className="text-[12px] text-stone hidden lg:block max-w-[160px] truncate">{email}</span>
           <button onClick={signOut}

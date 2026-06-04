@@ -20,8 +20,6 @@ export async function POST() {
     sb.from('cost_line').select('budget,actual_cost'),
   ]);
 
-  if (!project) return Response.json({ error: 'no_project', message: 'No project found — run the seed first.' }, { status: 404 });
-
   const acts = activities ?? [];
   const m = computeMetrics(acts as any, (costs ?? []) as any);
   const pending = (dels ?? []).filter(d => d.status === 'submitted' || d.status === 'under_review');

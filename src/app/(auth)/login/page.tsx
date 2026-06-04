@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { GlassPanel } from '@/components/ui/GlassPanel';
 import { Eyebrow } from '@/components/ui/Eyebrow';
+import { ThemeToggle } from '@/components/chrome/ThemeToggle';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +49,7 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center p-6 hero-ambient">
+      <ThemeToggle floating />
       <GlassPanel radius="hero" elev={4} className="w-full max-w-[420px] p-0 overflow-hidden">
         <div className="bg-gradient-to-br from-bark to-[#2A3E2C] text-cream p-7">
           <div className="flex items-center gap-3">
