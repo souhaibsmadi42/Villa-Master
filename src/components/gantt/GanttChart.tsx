@@ -41,14 +41,16 @@ export function GanttChart({ activities, stages, contractors, deps }: {
   const gridW = totalDays * ppd;
   const xOf = (d: string | number) => ((+new Date(d) - min) / DAY) * ppd;
 
+  // Rows: stage header then its activities (filtered), keeping a flat render order for dependency math.
   const rows = useMemo(() => {
-    const out: Array<{ type: 'stage'; name: string } | { type: 'act'; a: GanttActivity }> = [];
+    const out: Array<{ type: 'stage'; name: string } | { type: 'act'; a: GanttActivity; rowIndex: number }> = [];
+    let rowIndex = 0;
     const sorted = [...stages].sort((s1, s2) => s1.ord - s2.ord);
     for (const st of sorted) {
       const acts = activities.filter(a => a.stage_id === st.id && (!contractorFilter || a.contractor_id === contractorFilter));
       if (!acts.length) continue;
       out.push({ type: 'stage', name: st.name });
-      for (const a of acts) out.push({ type: 'act', a });
+      for (const a of acts) { out.push({ type: 'act', a, rowIndex }); rowIndex++; }
     }
     return out;
   }, [activities, stages, contractorFilter]);
@@ -61,7 +63,8 @@ export function GanttChart({ activities, stages, contractors, deps }: {
   }, [rows]);
   const bodyH = rows.reduce((h, r) => h + (r.type === 'stage' ? 28 : ROW_H), 0);
 
-  // Header ticks — granularity + minor/major follow the zoom level.
+  // Header ticks — granularity follows the zoom level:
+  //   Week → days · Month → weeks · Quarter/Year → months.
   const ticks = useMemo(() => {
     const out: { x: number; label: string; major: boolean }[] = [];
     if (zoom === 'week') {
@@ -81,6 +84,7 @@ export function GanttChart({ activities, stages, contractors, deps }: {
         d.setMonth(d.getMonth() + 1);
       }
     } else if (zoom === 'quarter') {
+      // minor = months · major = quarter starts (Jan/Apr/Jul/Oct)
       const d = new Date(min); d.setDate(1);
       while (+d < max) {
         const major = d.getMonth() % 3 === 0;
@@ -88,6 +92,7 @@ export function GanttChart({ activities, stages, contractors, deps }: {
         d.setMonth(d.getMonth() + 1);
       }
     } else {
+      // year: minor = months (line only) · major = quarter starts, label year at Jan
       const d = new Date(min); d.setDate(1);
       while (+d < max) {
         const isYear = d.getMonth() === 0, isQuarter = d.getMonth() % 3 === 0;
@@ -98,9 +103,11 @@ export function GanttChart({ activities, stages, contractors, deps }: {
     return out;
   }, [zoom, min, max, ppd]);
 
+  // "Today" / status line — defaults to the real date, but can be moved manually.
   const [statusDate, setStatusDate] = useState<string>(isoToday());
   const todayX = xOf(statusDate ? +new Date(statusDate) : Date.now());
 
+  // Drag-to-scroll (mouse)
   const drag = useRef<{ x: number; left: number } | null>(null);
   function onDown(e: React.MouseEvent) { if (!scrollRef.current) return; drag.current = { x: e.clientX, left: scrollRef.current.scrollLeft }; }
   function onMove(e: React.MouseEvent) { if (!drag.current || !scrollRef.current) return; scrollRef.current.scrollLeft = drag.current.left - (e.clientX - drag.current.x); }
@@ -111,6 +118,7 @@ export function GanttChart({ activities, stages, contractors, deps }: {
 
   return (
     <div className="flex flex-col gap-3">
+      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1 rounded-full border border-border bg-surface p-1">
           {(['year', 'quarter', 'month', 'week'] as Zoom[]).map(z => (
@@ -130,81 +138,97 @@ export function GanttChart({ activities, stages, contractors, deps }: {
         </div>
       </div>
 
+      {/* Gantt */}
       <div ref={scrollRef} className="overflow-x-auto cursor-grab active:cursor-grabbing select-none"
         onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp}>
         <div className="rounded-panel border border-border bg-surface shadow-e2 overflow-hidden" style={{ width: LABEL_W + gridW, position: 'relative' }}>
-          <div className="sticky top-0 z-10 bg-surface border-b border-border" style={{ height: HEAD_H }}>
-            <div className="absolute left-0 top-0 h-full flex items-center px-5 text-[9.5px] font-bold tracking-eyebrow uppercase text-stone" style={{ width: LABEL_W }}>Phase / Activity</div>
-            {ticks.map((t, i) => (
-              <div key={i} className={`absolute top-0 h-full num pl-1 pt-1.5 text-[10px] border-l ${t.major ? 'border-border-2 text-bark font-medium' : 'border-border/40 text-stone/55'}`} style={{ left: LABEL_W + t.x }}>{t.label}</div>
-            ))}
-          </div>
-
-          <div style={{ position: 'relative', height: bodyH }}>
-            <svg className="absolute pointer-events-none" style={{ left: LABEL_W, top: 0, width: gridW, height: bodyH }}>
+            {/* Header */}
+            <div className="sticky top-0 z-10 bg-surface border-b border-border" style={{ height: HEAD_H }}>
+              <div className="absolute left-0 top-0 h-full flex items-center px-5 text-[9.5px] font-bold tracking-eyebrow uppercase text-stone" style={{ width: LABEL_W }}>Phase / Activity</div>
               {ticks.map((t, i) => (
-                <line key={i} x1={t.x} y1={0} x2={t.x} y2={bodyH}
-                  stroke={t.major ? 'var(--c-border-2)' : 'var(--c-border)'}
-                  strokeWidth={1} strokeOpacity={t.major ? 0.65 : 0.28} />
+                <div key={i} className={`absolute top-0 h-full num pl-1 pt-1.5 text-[10px] border-l ${t.major ? 'border-border-2 text-bark font-medium' : 'border-border/40 text-stone/55'}`} style={{ left: LABEL_W + t.x }}>{t.label}</div>
               ))}
-            </svg>
-            <svg className="absolute pointer-events-none" style={{ left: LABEL_W, top: 0, width: gridW, height: bodyH, overflow: 'visible' }}>
-              {deps.map((d, i) => {
-                const p = activities.find(a => a.id === d.predecessor_id), s = activities.find(a => a.id === d.successor_id);
-                if (!p || !s || actRowY[p.id] == null || actRowY[s.id] == null) return null;
-                const x1 = xOf(p.end_date), y1 = actRowY[p.id], x2 = xOf(s.start_date), y2 = actRowY[s.id];
-                return <path key={i} d={`M${x1},${y1} C${x1 + 16},${y1} ${x2 - 16},${y2} ${x2},${y2}`}
-                  fill="none" stroke="var(--c-stone)" strokeOpacity="0.4" strokeWidth="1.2" markerEnd="url(#arr)" />;
-              })}
-              <defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="var(--c-stone)" fillOpacity="0.5" /></marker></defs>
-            </svg>
+            </div>
 
-            {todayX >= 0 && todayX <= gridW && (
-              <div className="absolute top-0 z-[5]" style={{ left: LABEL_W + todayX, height: bodyH }}>
-                <div className="absolute top-0 w-0.5 bg-iron" style={{ height: bodyH }} />
-                <div className="absolute -top-px -translate-x-1/2 rounded-full bg-iron text-white text-[8.5px] font-bold tracking-wide px-1.5 py-0.5 whitespace-nowrap">TODAY</div>
-              </div>
-            )}
+            {/* Body */}
+            <div style={{ position: 'relative', height: bodyH }}>
+              {/* vertical grid lines — light for minor (days/weeks/months), bold for major (months/quarters) */}
+              <svg className="absolute pointer-events-none" style={{ left: LABEL_W, top: 0, width: gridW, height: bodyH }}>
+                {ticks.map((t, i) => (
+                  <line key={i} x1={t.x} y1={0} x2={t.x} y2={bodyH}
+                    stroke={t.major ? 'var(--c-border-2)' : 'var(--c-border)'}
+                    strokeWidth={1} strokeOpacity={t.major ? 0.65 : 0.28} />
+                ))}
+              </svg>
+              {/* dependency layer */}
+              <svg className="absolute pointer-events-none" style={{ left: LABEL_W, top: 0, width: gridW, height: bodyH, overflow: 'visible' }}>
+                {deps.map((d, i) => {
+                  const p = activities.find(a => a.id === d.predecessor_id), s = activities.find(a => a.id === d.successor_id);
+                  if (!p || !s || actRowY[p.id] == null || actRowY[s.id] == null) return null;
+                  const x1 = xOf(p.end_date), y1 = actRowY[p.id], x2 = xOf(s.start_date), y2 = actRowY[s.id];
+                  return <path key={i} d={`M${x1},${y1} C${x1 + 16},${y1} ${x2 - 16},${y2} ${x2},${y2}`}
+                    fill="none" stroke="var(--c-stone)" strokeOpacity="0.4" strokeWidth="1.2" markerEnd="url(#arr)" />;
+                })}
+                <defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="var(--c-stone)" fillOpacity="0.5" /></marker></defs>
+              </svg>
 
-            {(() => { let y = 0; return rows.map((r, idx) => {
-              if (r.type === 'stage') { const top = y; y += 28; return (
-                <div key={`s${idx}`} className="absolute left-0 flex items-center px-5 font-display text-[15px] font-semibold text-bark bg-gradient-to-r from-surface-3 to-surface-2 border-y border-border z-[3]" style={{ top, height: 28, width: LABEL_W + gridW }}>{r.name}</div>
-              ); }
-              const a = r.a; const top = y; y += ROW_H;
-              const bx = xOf(a.start_date), bw = Math.max(4, xOf(a.end_date) - xOf(a.start_date));
-              const base = colorOf[a.contractor_id ?? ''] ?? '#8C7B6B';
-              const dim = showCritical && !a.is_critical;
-              const barColor = statusColor(a, base);
-              return (
-                <div key={a.id} className="absolute left-0 group" style={{ top, height: ROW_H, width: LABEL_W + gridW }}>
-                  <div className="absolute inset-0 group-hover:bg-olive/[0.05] transition-colors" style={{ left: LABEL_W, width: gridW }} />
-                  <div className="absolute h-full border-b border-border/70" style={{ left: LABEL_W, width: gridW }} />
-                  <div className="absolute left-0 h-full flex items-center px-5 border-b border-border/70 bg-surface group-hover:bg-surface-2 transition-colors z-[2]" style={{ width: LABEL_W }}>
-                    <button onClick={() => router.push(`/activities/${a.id}`)} className="text-left w-full">
-                      <div className="text-[12.5px] text-text leading-tight line-clamp-1 group-hover:text-olive transition-colors">{a.name}</div>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="h-1.5 w-1.5 rounded-sm shrink-0" style={{ background: base }} />
-                        <span className="num text-[10px] text-stone">{a.progress}%</span>
-                        {a.is_critical && <span className="text-[8.5px] font-bold tracking-wide uppercase text-iron">crit</span>}
-                      </div>
+              {/* today line + flag */}
+              {todayX >= 0 && todayX <= gridW && (
+                <div className="absolute top-0 z-[5]" style={{ left: LABEL_W + todayX, height: bodyH }}>
+                  <div className="absolute top-0 w-0.5 bg-iron" style={{ height: bodyH }} />
+                  <div className="absolute -top-px -translate-x-1/2 rounded-full bg-iron text-white text-[8.5px] font-bold tracking-wide px-1.5 py-0.5 whitespace-nowrap">TODAY</div>
+                </div>
+              )}
+
+              {/* rows */}
+              {(() => { let y = 0; return rows.map((r, idx) => {
+                if (r.type === 'stage') { const top = y; y += 28; return (
+                  <div key={`s${idx}`} className="absolute left-0 flex items-center px-5 font-display text-[15px] font-semibold text-bark bg-gradient-to-r from-surface-3 to-surface-2 border-y border-border z-[3]" style={{ top, height: 28, width: LABEL_W + gridW }}>{r.name}</div>
+                ); }
+                const a = r.a; const top = y; y += ROW_H;
+                const bx = xOf(a.start_date), bw = Math.max(4, xOf(a.end_date) - xOf(a.start_date));
+                const base = colorOf[a.contractor_id ?? ''] ?? '#8C7B6B';
+                const dim = showCritical && !a.is_critical;
+                const barColor = statusColor(a, base);
+                return (
+                  <div key={a.id} className="absolute left-0 group" style={{ top, height: ROW_H, width: LABEL_W + gridW }}>
+                    {/* full-row hover highlight */}
+                    <div className="absolute inset-0 group-hover:bg-olive/[0.05] transition-colors" style={{ left: LABEL_W, width: gridW }} />
+                    <div className="absolute h-full border-b border-border/70" style={{ left: LABEL_W, width: gridW }} />
+                    {/* sticky label */}
+                    <div className="absolute left-0 h-full flex items-center px-5 border-b border-border/70 bg-surface group-hover:bg-surface-2 transition-colors z-[2]" style={{ width: LABEL_W }}>
+                      <button onClick={() => router.push(`/activities/${a.id}`)} className="text-left w-full">
+                        <div className="text-[12.5px] text-text leading-tight line-clamp-1 group-hover:text-olive transition-colors">{a.name}</div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="h-1.5 w-1.5 rounded-sm shrink-0" style={{ background: base }} />
+                          <span className="num text-[10px] text-stone">{a.progress}%</span>
+                          {a.is_critical && <span className="text-[8.5px] font-bold tracking-wide uppercase text-iron">crit</span>}
+                        </div>
+                      </button>
+                    </div>
+                    {/* baseline ghost (positioned relative to this row) */}
+                    {showBaseline && a.baseline_start && a.baseline_end && (
+                      <div className="absolute rounded-full" style={{ left: LABEL_W + xOf(a.baseline_start), width: Math.max(4, xOf(a.baseline_end) - xOf(a.baseline_start)), top: ROW_H - 7, height: 3, background: 'var(--c-stone)', opacity: dim ? 0.12 : 0.35 }} />
+                    )}
+                    {/* bar: light track + solid progress fill (top relative to this row) */}
+                    <button onClick={() => router.push(`/activities/${a.id}`)} title={`${a.name} · ${a.progress}% complete`}
+                      className="absolute rounded-[5px] overflow-hidden ring-1 ring-black/[0.05] hover:-translate-y-px transition-transform"
+                      style={{
+                        left: LABEL_W + bx, width: bw, top: 8, height: 16,
+                        opacity: dim ? 0.25 : 1,
+                        outline: showCritical && a.is_critical ? '1.5px solid var(--c-iron)' : 'none',
+                        outlineOffset: 1,
+                      }}>
+                      <span className="absolute inset-0" style={{ background: barColor, opacity: 0.2 }} />
+                      <span className="absolute inset-y-0 left-0" style={{ width: `${a.progress}%`, background: barColor }} />
+                      {bw > 44 && a.progress > 0 && <span className="absolute inset-0 flex items-center px-2 text-[9.5px] num font-medium" style={{ color: a.progress > 55 ? '#fff' : 'var(--c-bark)' }}>{a.progress}%</span>}
                     </button>
                   </div>
-                  {showBaseline && a.baseline_start && a.baseline_end && (
-                    <div className="absolute rounded-full" style={{ left: LABEL_W + xOf(a.baseline_start), width: Math.max(4, xOf(a.baseline_end) - xOf(a.baseline_start)), top: ROW_H - 7, height: 3, background: 'var(--c-stone)', opacity: dim ? 0.12 : 0.35 }} />
-                  )}
-                  <button onClick={() => router.push(`/activities/${a.id}`)} title={`${a.name} · ${a.progress}% complete`}
-                    className="absolute rounded-[5px] overflow-hidden ring-1 ring-black/[0.05] hover:-translate-y-px transition-transform"
-                    style={{ left: LABEL_W + bx, width: bw, top: 8, height: 16, opacity: dim ? 0.25 : 1, outline: showCritical && a.is_critical ? '1.5px solid var(--c-iron)' : 'none', outlineOffset: 1 }}>
-                    <span className="absolute inset-0" style={{ background: barColor, opacity: 0.2 }} />
-                    <span className="absolute inset-y-0 left-0" style={{ width: `${a.progress}%`, background: barColor }} />
-                    {bw > 44 && a.progress > 0 && <span className="absolute inset-0 flex items-center px-2 text-[9.5px] num font-medium" style={{ color: a.progress > 55 ? '#fff' : 'var(--c-bark)' }}>{a.progress}%</span>}
-                  </button>
-                </div>
-              );
-            }); })()}
+                );
+              }); })()}
+            </div>
           </div>
         </div>
-      </div>
       <p className="text-[11px] text-stone">Drag to scroll · click a bar to open the activity · the line under each bar is its baseline.</p>
     </div>
   );

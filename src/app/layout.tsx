@@ -8,8 +8,10 @@ export const metadata: Metadata = {
   description: 'A premium digital operating system for the Villa Ajloun project. Ajloun, Jordan.',
 };
 
+// Sets the saved theme before paint (no flash of the wrong colors).
 const THEME_INIT = `try{var t=localStorage.getItem('va-theme');if(!t){t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);}catch(e){}`;
 
+// Wires the global floating theme button (works on every page, persists across navigation).
 const THEME_WIRE = `(function(){function paint(){var dark=document.documentElement.getAttribute('data-theme')==='dark';var b=document.getElementById('vaThemeBtn');if(b)b.textContent=dark?'☀':'☾';}function init(){var b=document.getElementById('vaThemeBtn');if(b&&!b.dataset.wired){b.dataset.wired='1';b.addEventListener('click',function(){var cur=document.documentElement.getAttribute('data-theme')==='dark'?'dark':'light';var next=cur==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',next);try{localStorage.setItem('va-theme',next);}catch(e){}paint();});}paint();}if(document.readyState!=='loading')init();else document.addEventListener('DOMContentLoaded',init);})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

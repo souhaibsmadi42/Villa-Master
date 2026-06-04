@@ -4,7 +4,6 @@ import { HeroThreshold } from '@/components/scenes/HeroThreshold';
 import { Reveal } from '@/components/marketing/Reveal';
 import { Eyebrow } from '@/components/ui/Eyebrow';
 import { GlassPanel } from '@/components/ui/GlassPanel';
-import { ThemeToggle } from '@/components/chrome/ThemeToggle';
 
 const STATS = [
   { v: '108', l: 'weeks' }, { v: '5', l: 'contractors' }, { v: '33', l: 'activities' }, { v: '4', l: 'stages' },
@@ -30,8 +29,7 @@ export default function Home() {
       <CursorLight />
 
       {/* top bar */}
-      <div className="fixed top-4 right-5 z-50 flex items-center gap-2">
-        <div className="glass rounded-full p-0.5"><ThemeToggle /></div>
+      <div className="fixed top-4 right-5 z-50">
         <Link href="/login" className="rounded-full bg-bark/90 text-cream backdrop-blur px-5 py-2.5 text-[12.5px] font-semibold hover:bg-bark transition shadow-e2">Sign in →</Link>
       </div>
 
