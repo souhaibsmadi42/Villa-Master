@@ -10,9 +10,9 @@ import { IndeterminateBar } from '@/components/ui/Spinner';
 import { useShell } from '@/components/chrome/AppShell';
 import { RichText } from './RichText';
 
-type Msg = { role: 'user' | 'assistant'; content: string; error?: boolean };
+type Msg = { role: 'user' | 'assistant'; content: string; error?: boolean; builtin?: boolean };
 type Phase = 'idle' | 'connecting' | 'streaming';
-type Grounding = { activities: number; deliverables: number; milestones: number; generatedAt: string };
+type Grounding = { activities: number; deliverables: number; milestones: number; generatedAt: string; engine?: 'claude' | 'builtin' };
 
 export function AssistantPanel({ open, onClose, initialPrompt, promptNonce }: {
   open: boolean; onClose: () => void; initialPrompt?: string; promptNonce: number;
@@ -70,7 +70,7 @@ export function AssistantPanel({ open, onClose, initialPrompt, promptNonce }: {
         return;
       }
       const reader = res.body.getReader(); const decoder = new TextDecoder();
-      let acc = '', buf = '', errored = false;
+      let acc = '', buf = '', errored = false, builtin = false;
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -81,10 +81,10 @@ export function AssistantPanel({ open, onClose, initialPrompt, promptNonce }: {
           const data = chunk.split('\n').find(l => l.startsWith('data:'))?.slice(5).trim();
           if (!ev || !data) continue;
           let parsed: Record<string, unknown>; try { parsed = JSON.parse(data); } catch { continue; }
-          if (ev === 'context') setGrounding(parsed as unknown as Grounding);
+          if (ev === 'context') { setGrounding(parsed as unknown as Grounding); builtin = parsed.engine === 'builtin'; }
           if (ev === 'delta' && typeof parsed.text === 'string') {
             acc += parsed.text; setPhase('streaming');
-            setMessages([...next, { role: 'assistant', content: acc }]);
+            setMessages([...next, { role: 'assistant', content: acc, builtin }]);
           }
           if (ev === 'error') {
             errored = true;
@@ -132,7 +132,7 @@ export function AssistantPanel({ open, onClose, initialPrompt, promptNonce }: {
             <div className="min-w-0 flex-1">
               <div className="text-[14px] font-medium leading-tight text-ink">Project assistant</div>
               <div className="num truncate text-[10.5px] text-muted">
-                {phase === 'connecting' ? 'Reading live project data…' : phase === 'streaming' ? 'Writing…' : 'Claude · grounded in live project data'}
+                {phase === 'connecting' ? 'Reading live project data…' : phase === 'streaming' ? 'Writing…' : grounding?.engine === 'builtin' ? 'Built-in answers · AI not connected' : 'Claude · grounded in live project data'}
               </div>
             </div>
             {messages.length > 0 && !busy && (
@@ -150,8 +150,8 @@ export function AssistantPanel({ open, onClose, initialPrompt, promptNonce }: {
                 <motion.div variants={rowIn}>
                   <div className="display text-[30px] leading-[1.05] text-ink">Ask about the <em className="italic text-accent">programme</em>, the people, the decisions.</div>
                   <p className="mt-3 text-[12.5px] leading-relaxed text-muted">
-                    Answers are written by Claude from the project data you can see, read at the moment you ask.
-                    Recommendations are marked as suggestions — verify before acting.
+                    Answers come from the project data you can see, read at the moment you ask — written by Claude when
+                    AI is connected, otherwise computed directly from the records. Suggestions are marked — verify before acting.
                   </p>
                 </motion.div>
                 <motion.div variants={rowIn} className="flex flex-col gap-1.5">
@@ -234,6 +234,7 @@ function AssistantMessage({ m, streaming, onRetry }: { m: Msg; streaming: boolea
   return (
     <div className="group w-full text-[13.5px] leading-[1.65] text-ink-2">
       <RichText text={m.content} />
+      {m.builtin && !streaming && <div className="eyebrow mt-2 text-[9px] text-faint">Computed from live data · not AI-written</div>}
       {streaming && <span className="ml-0.5 inline-block h-3.5 w-[2px] translate-y-0.5 bg-accent" style={{ animation: 'vm-caret 1s infinite' }} />}
       {!streaming && m.content && (
         <button onClick={() => { navigator.clipboard?.writeText(m.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1400); }); }}

@@ -50,7 +50,10 @@ Seed the database with `npm run seed` (CLI) or `/api/seed?secret=$CRON_SECRET` a
 
 `/api/assistant` streams Claude's answer (SSE: `context`, `delta`, `done`, `error`) grounded in a live, RLS-scoped snapshot
 built by `getLiveSnapshotText()` in `src/lib/project-data.ts`. It requires a signed-in user. Suggestions are visibly separated
-from recorded facts. Without `ANTHROPIC_API_KEY` the UI shows a clear "not configured" state — nothing is invented.
+from recorded facts. **Without `ANTHROPIC_API_KEY`** it still works: `src/lib/offline-assistant.ts` answers the common
+questions (status, delays and what they hold up, approvals, overdue items, next milestone, any contractor, a weekly-update draft)
+directly from the same live data, and the UI labels those answers "Computed from live data · not AI-written". Add the key and the
+same panel switches to Claude automatically.
 
 ## Notes
 

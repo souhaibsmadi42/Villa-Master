@@ -7,19 +7,18 @@ import { IndeterminateBar } from '@/components/ui/Spinner';
 
 /**
  * On-demand "editor's note" from /api/insight. Generated only when asked
- * (no silent API spend), labelled as AI-written, never replaced by stock text.
+ * (no silent API spend) and labelled by source: Claude, or computed from live data.
  */
 export function InsightNote() {
-  const [state, setState] = useState<{ kind: 'idle' | 'loading' | 'done' | 'error' | 'off'; text?: string }>({ kind: 'idle' });
+  const [state, setState] = useState<{ kind: 'idle' | 'loading' | 'done' | 'error'; text?: string; ai?: boolean }>({ kind: 'idle' });
 
   async function run() {
     setState({ kind: 'loading' });
     try {
       const r = await fetch('/api/insight');
       const d = await r.json();
-      if (d.reason === 'not_configured') return setState({ kind: 'off' });
       if (!r.ok || !d.paragraph) return setState({ kind: 'error', text: d.message ?? 'The note could not be written.' });
-      setState({ kind: 'done', text: d.paragraph });
+      setState({ kind: 'done', text: d.paragraph, ai: !!d.generated });
     } catch { setState({ kind: 'error', text: 'Network error.' }); }
   }
 
@@ -32,7 +31,7 @@ export function InsightNote() {
       <AnimatePresence mode="wait">
         {state.kind === 'idle' && (
           <motion.div key="idle" exit={{ opacity: 0 }} className="mt-3 flex flex-col gap-3">
-            <p className="text-[12.5px] leading-relaxed text-muted">A short dispatch written by Claude from today’s project data.</p>
+            <p className="text-[12.5px] leading-relaxed text-muted">A short dispatch from today’s project data — written by Claude when AI is connected.</p>
             <Button size="xs" onClick={run} className="self-start">Write today’s note</Button>
           </motion.div>
         )}
@@ -45,10 +44,9 @@ export function InsightNote() {
         {state.kind === 'done' && (
           <motion.div key="done" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
             <p className="display mt-3 text-[19px] leading-[1.35] text-ink">{state.text}</p>
-            <p className="mt-2 text-[10.5px] text-faint">Written by Claude from live data · verify before acting</p>
+            <p className="mt-2 text-[10.5px] text-faint">{state.ai ? 'Written by Claude from live data · verify before acting' : 'Computed from live data · AI not connected'}</p>
           </motion.div>
         )}
-        {state.kind === 'off' && <motion.p key="off" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3 text-[12.5px] leading-relaxed text-muted">AI notes are not configured on this deployment (no <code className="num">ANTHROPIC_API_KEY</code>).</motion.p>}
         {state.kind === 'error' && (
           <motion.div key="err" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3 flex items-center gap-3 text-[12.5px] text-critical">
             {state.text} <Button size="xs" variant="ghost" onClick={run}>Retry</Button>

@@ -88,75 +88,98 @@ export async function getShellSummary(): Promise<ShellSummary> {
   }
 }
 
-/**
- * Plain-text project snapshot for the AI assistant, built from live data the
- * caller is allowed to see. Kept compact so it fits in a system prompt.
- */
-export async function getLiveSnapshotText(): Promise<{ text: string; counts: { activities: number; deliverables: number; milestones: number } }> {
+type LiveActivity = PhaseActivity & { id: string; name: string; contractor_id: string | null; is_critical: boolean };
+type LiveDeliverable = { name: string; status: string; priority: string; due_date: string | null; contractor_id: string | null };
+
+/** Structured live project data for the assistant, read with the caller's session (RLS applies). */
+export async function getLiveProjectData() {
   const sb = await createClient();
-  const [{ data: project }, { data: acts }, { data: stages }, { data: contractors }, { data: dels }, { data: milestones }, { data: costs }, { data: events }] = await Promise.all([
+  const [{ data: project }, { data: acts }, { data: stages }, { data: contractors }, { data: dels }, { data: milestones }, { data: costs }, { data: events }, { data: deps }] = await Promise.all([
     sb.from('project').select('name,location,start_date,end_date,currency').limit(1).maybeSingle(),
-    sb.from('activity').select('name,stage_id,contractor_id,start_date,end_date,baseline_start,baseline_end,progress,weight,status,is_critical'),
+    sb.from('activity').select('id,name,stage_id,contractor_id,start_date,end_date,baseline_start,baseline_end,progress,weight,status,is_critical'),
     sb.from('stage').select('id,name,ord').order('ord'),
     sb.from('contractor').select('id,name,scope'),
     sb.from('deliverable').select('name,status,priority,due_date,contractor_id'),
     sb.from('milestone').select('name,planned_date,actual_date,status').order('ord'),
     sb.from('cost_line').select('budget,actual_cost'),
     sb.from('event_log').select('actor_name,verb,subject_text,at').order('at', { ascending: false }).limit(10),
+    sb.from('activity_dependency').select('predecessor_id,successor_id'),
   ]);
 
-  const A = (acts ?? []) as (PhaseActivity & { name: string; contractor_id: string | null; is_critical: boolean })[];
-  const D = dels ?? [];
-  const C = contractors ?? [];
-  const cName = (id: string | null) => C.find(c => c.id === id)?.name ?? 'Unassigned';
-  const m = computeMetrics(A, (costs ?? []) as CostLite[]);
+  const A = (acts ?? []) as LiveActivity[];
+  const D = (dels ?? []) as LiveDeliverable[];
+  const C = (contractors ?? []) as { id: string; name: string; scope: string | null }[];
   const now = Date.now();
   const today = new Date().toISOString().slice(0, 10);
-  const wk = programmeWeek(project?.start_date, project?.end_date);
-  const phase = currentPhase((stages ?? []) as StageLite[], A);
-  const fmt = (s: string | null) => s ?? 'no date';
-
-  const active = A.filter(a => a.status !== 'done' && +new Date(a.start_date) <= now && +new Date(a.end_date) >= now);
-  const delayed = A.filter(a => a.status === 'delayed');
-  const behind = A.filter(a => {
-    if (a.status === 'done') return false;
+  const plannedPct = (a: LiveActivity) => {
     const s = +new Date(a.baseline_start ?? a.start_date), e = +new Date(a.baseline_end ?? a.end_date);
-    const planned = e <= s ? (now >= e ? 100 : 0) : Math.max(0, Math.min(100, ((now - s) / (e - s)) * 100));
-    return planned - a.progress >= 15;
-  });
-  const awaiting = D.filter(d => isAwaitingDecision(d.status));
-  const overdue = D.filter(d => d.due_date && d.due_date < today && !isClosedDeliverable(d.status));
-  const upcoming = D.filter(d => d.due_date && d.due_date >= today && !isClosedDeliverable(d.status))
-    .sort((a, b) => (a.due_date! < b.due_date! ? -1 : 1)).slice(0, 10);
+    return e <= s ? (now >= e ? 100 : 0) : Math.max(0, Math.min(100, ((now - s) / (e - s)) * 100));
+  };
 
-  const perContractor = C.map(c => {
-    const own = A.filter(a => a.contractor_id === c.id);
+  return {
+    today,
+    project,
+    metrics: computeMetrics(A, (costs ?? []) as CostLite[]),
+    week: programmeWeek(project?.start_date, project?.end_date),
+    phase: currentPhase((stages ?? []) as StageLite[], A),
+    activities: A,
+    contractors: C,
+    deliverables: D,
+    milestones: (milestones ?? []) as { name: string; planned_date: string | null; actual_date: string | null; status: string }[],
+    events: (events ?? []) as { actor_name: string | null; verb: string; subject_text: string | null; at: string }[],
+    deps: (deps ?? []) as { predecessor_id: string; successor_id: string }[],
+    contractorName: (id: string | null) => C.find(c => c.id === id)?.name ?? 'Unassigned',
+    active: A.filter(a => a.status !== 'done' && +new Date(a.start_date) <= now && +new Date(a.end_date) >= now),
+    delayed: A.filter(a => a.status === 'delayed'),
+    /** Not done and at least 15 points behind where the baseline says it should be today. */
+    behind: A.filter(a => a.status !== 'done' && plannedPct(a) - a.progress >= 15).map(a => ({ a, gap: Math.round(plannedPct(a) - a.progress) })),
+    awaiting: D.filter(d => isAwaitingDecision(d.status)),
+    overdue: D.filter(d => d.due_date && d.due_date < today && !isClosedDeliverable(d.status)),
+    upcoming: D.filter(d => d.due_date && d.due_date >= today && !isClosedDeliverable(d.status)).sort((a, b) => (a.due_date! < b.due_date! ? -1 : 1)),
+  };
+}
+export type LiveProjectData = Awaited<ReturnType<typeof getLiveProjectData>>;
+
+/** Plain-text snapshot of the live data, compact enough for a system prompt. */
+export function snapshotText(d: LiveProjectData) {
+  const { project, metrics: m, week: wk, phase, contractorName: cName } = d;
+  const fmt = (s: string | null | undefined) => s ?? 'no date';
+  const perContractor = d.contractors.map(c => {
+    const own = d.activities.filter(a => a.contractor_id === c.id);
     if (!own.length) return null;
     const cm = computeMetrics(own);
-    const openD = D.filter(d => d.contractor_id === c.id && !isClosedDeliverable(d.status)).length;
+    const openD = d.deliverables.filter(x => x.contractor_id === c.id && !isClosedDeliverable(x.status)).length;
     return `- ${c.name}${c.scope ? ` (${c.scope})` : ''}: ${own.length} activities, ${cm.progress}% earned vs ${cm.plannedToday}% planned, ${cm.delayed} delayed, ${openD} open deliverables`;
-  }).filter(Boolean);
+  }).filter(Boolean) as string[];
+  const late = [...new Set([...d.delayed, ...d.behind.map(b => b.a)])];
 
-  const lines = [
-    `TODAY: ${today}`,
+  return [
+    `TODAY: ${d.today}`,
     `PROJECT: ${project?.name ?? 'Unknown'} — ${project?.location ?? ''}`,
-    `Programme: ${fmt(project?.start_date ?? null)} → ${fmt(project?.end_date ?? null)}${wk ? ` · week ${wk.week}${wk.total ? ` of ${wk.total}` : ''}` : ''}${phase ? ` · current phase "${phase}"` : ''}.`,
+    `Programme: ${fmt(project?.start_date)} → ${fmt(project?.end_date)}${wk ? ` · week ${wk.week}${wk.total ? ` of ${wk.total}` : ''}` : ''}${phase ? ` · current phase "${phase}"` : ''}.`,
     `Progress ${m.progress}% earned vs ${m.plannedToday}% planned by today · SPI ${m.spi} · health ${m.health}/100${m.cpi != null ? ` · CPI ${m.cpi}` : ' · no cost data recorded'}.`,
-    `Activities visible: ${A.length}. In progress today: ${active.length}. Marked delayed: ${delayed.length}. ≥15 points behind plan: ${behind.length}.`,
+    `Activities visible: ${d.activities.length}. In progress today: ${d.active.length}. Marked delayed: ${d.delayed.length}. ≥15 points behind plan: ${d.behind.length}.`,
     '',
-    'CONTRACTORS:', ...(perContractor.length ? perContractor as string[] : ['- none visible']),
+    'CONTRACTORS:', ...(perContractor.length ? perContractor : ['- none visible']),
     '',
-    'DELAYED / BEHIND ACTIVITIES:', ...([...new Set([...delayed, ...behind])].slice(0, 12).map(a => `- ${a.name} — ${cName(a.contractor_id)}, ${a.progress}% done, ends ${a.end_date}${a.is_critical ? ', CRITICAL PATH' : ''}`)),
-    ...(delayed.length + behind.length === 0 ? ['- none'] : []),
+    'DELAYED / BEHIND ACTIVITIES:', ...late.slice(0, 12).map(a => `- ${a.name} — ${cName(a.contractor_id)}, ${a.progress}% done, ends ${a.end_date}${a.is_critical ? ', CRITICAL PATH' : ''}`),
+    ...(late.length === 0 ? ['- none'] : []),
     '',
-    `DELIVERABLES: ${D.length} total · ${awaiting.length} awaiting decision · ${overdue.length} overdue.`,
-    ...awaiting.slice(0, 10).map(d => `- AWAITING: ${d.name} (${cName(d.contractor_id)}, ${d.status.replace('_', ' ')})`),
-    ...overdue.slice(0, 10).map(d => `- OVERDUE: ${d.name} (${cName(d.contractor_id)}, due ${d.due_date}, ${d.status.replace('_', ' ')})`),
-    ...upcoming.map(d => `- DUE ${d.due_date}: ${d.name} (${cName(d.contractor_id)}, ${d.priority} priority, ${d.status.replace('_', ' ')})`),
+    `DELIVERABLES: ${d.deliverables.length} total · ${d.awaiting.length} awaiting decision · ${d.overdue.length} overdue.`,
+    ...d.awaiting.slice(0, 10).map(x => `- AWAITING: ${x.name} (${cName(x.contractor_id)}, ${x.status.replace('_', ' ')})`),
+    ...d.overdue.slice(0, 10).map(x => `- OVERDUE: ${x.name} (${cName(x.contractor_id)}, due ${x.due_date}, ${x.status.replace('_', ' ')})`),
+    ...d.upcoming.slice(0, 10).map(x => `- DUE ${x.due_date}: ${x.name} (${cName(x.contractor_id)}, ${x.priority} priority, ${x.status.replace('_', ' ')})`),
     '',
-    'MILESTONES:', ...(milestones ?? []).map(ms => `- ${ms.name}: planned ${fmt(ms.planned_date)}${ms.actual_date ? `, actual ${ms.actual_date}` : ''} (${ms.status})`),
+    'MILESTONES:', ...d.milestones.map(ms => `- ${ms.name}: planned ${fmt(ms.planned_date)}${ms.actual_date ? `, actual ${ms.actual_date}` : ''} (${ms.status})`),
     '',
-    'RECENT ACTIVITY LOG:', ...((events ?? []).length ? (events ?? []).map(e => `- ${e.at.slice(0, 10)} ${e.actor_name ?? 'Someone'} ${e.verb} ${e.subject_text ?? ''}`) : ['- none recorded']),
-  ];
-  return { text: lines.join('\n'), counts: { activities: A.length, deliverables: D.length, milestones: (milestones ?? []).length } };
+    'RECENT ACTIVITY LOG:', ...(d.events.length ? d.events.map(e => `- ${e.at.slice(0, 10)} ${e.actor_name ?? 'Someone'} ${e.verb} ${e.subject_text ?? ''}`) : ['- none recorded']),
+  ].join('\n');
+}
+
+export const snapshotCounts = (d: LiveProjectData) => ({ activities: d.activities.length, deliverables: d.deliverables.length, milestones: d.milestones.length });
+
+/** Plain-text project snapshot for the AI assistant (kept for existing callers). */
+export async function getLiveSnapshotText() {
+  const d = await getLiveProjectData();
+  return { text: snapshotText(d), counts: snapshotCounts(d) };
 }

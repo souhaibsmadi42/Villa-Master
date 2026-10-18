@@ -2,18 +2,21 @@
  * POST /api/assistant
  * Body: { messages: [{ role: 'user'|'assistant', content: string }], mode?: 'ask'|'draft' }
  * Streams Server-Sent Events:
- *   "event: context" {activities, deliverables, milestones, generatedAt}  — what the answer is grounded in
+ *   "event: context" {activities, deliverables, milestones, generatedAt, engine}  — what the answer is grounded in
  *   "event: delta"   {text}                                                — streamed tokens
  *   "event: done"    {usage, stop_reason}
  *   "event: error"   {error}
  *
  * Grounded in a live, RLS-scoped snapshot of the caller's project data (see
  * lib/project-data.ts), so the assistant only knows what the user may see.
+ * Without ANTHROPIC_API_KEY it streams built-in answers computed from the same
+ * data (lib/offline-assistant.ts); the context/done events carry engine: "builtin".
  */
 import { NextRequest } from 'next/server';
 import { anthropic, ANTHROPIC_MODEL } from '@/lib/anthropic';
 import { createClient } from '@/lib/supabase/server';
-import { getLiveSnapshotText } from '@/lib/project-data';
+import { getLiveProjectData, snapshotText, snapshotCounts, type LiveProjectData } from '@/lib/project-data';
+import { answerOffline } from '@/lib/offline-assistant';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,10 +49,6 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return json(401, { error: 'unauthorized', message: 'Sign in to use the project assistant.' });
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return json(500, { error: 'config', message: 'The assistant is not configured: ANTHROPIC_API_KEY is not set on the server.' });
-  }
-
   let body: { messages?: Array<{ role: 'user' | 'assistant'; content: string }>; mode?: 'ask' | 'draft' };
   try { body = await req.json(); }
   catch { return json(400, { error: 'bad_json', message: 'Bad JSON' }); }
@@ -60,16 +59,33 @@ export async function POST(req: NextRequest) {
     .slice(-24);
   if (!messages.length || messages[messages.length - 1].role !== 'user') return json(400, { error: 'empty', message: 'Ask a question first.' });
 
-  let snapshot: Awaited<ReturnType<typeof getLiveSnapshotText>>;
-  try { snapshot = await getLiveSnapshotText(); }
+  let data: LiveProjectData;
+  try { data = await getLiveProjectData(); }
   catch (e: unknown) { return json(502, { error: 'snapshot', message: `Could not read project data: ${e instanceof Error ? e.message : 'unknown error'}` }); }
 
-  const system = `${SYSTEM_BASE}\n\nMODE: ${mode}.\n\nPROJECT SNAPSHOT:\n${snapshot.text}`;
   const encoder = new TextEncoder();
+  const headers = {
+    'Content-Type': 'text/event-stream; charset=utf-8',
+    'Cache-Control': 'no-cache, no-transform',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  };
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    const answer = answerOffline(messages[messages.length - 1].content, mode, data);
+    const body = [
+      sse({ ...snapshotCounts(data), generatedAt: new Date().toISOString(), engine: 'builtin' }, 'context'),
+      ...answer.split(/(?<=\n\n)/).map(text => sse({ text }, 'delta')),
+      sse({ engine: 'builtin' }, 'done'),
+    ].join('');
+    return new Response(encoder.encode(body), { headers });
+  }
+
+  const system = `${SYSTEM_BASE}\n\nMODE: ${mode}.\n\nPROJECT SNAPSHOT:\n${snapshotText(data)}`;
 
   const stream = new ReadableStream({
     async start(controller) {
-      controller.enqueue(encoder.encode(sse({ ...snapshot.counts, generatedAt: new Date().toISOString() }, 'context')));
+      controller.enqueue(encoder.encode(sse({ ...snapshotCounts(data), generatedAt: new Date().toISOString(), engine: 'claude' }, 'context')));
       try {
         const resp = anthropic.messages.stream({
           model: ANTHROPIC_MODEL,
@@ -94,12 +110,5 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/event-stream; charset=utf-8',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no',
-    },
-  });
+  return new Response(stream, { headers });
 }
