@@ -11,9 +11,11 @@
  * lib/project-data.ts), so the assistant only knows what the user may see.
  * Without ANTHROPIC_API_KEY it streams built-in answers computed from the same
  * data (lib/offline-assistant.ts); the context/done events carry engine: "builtin".
+ * If the configured key is rejected or out of credit, it falls back the same way and
+ * first sends "event: notice" {message} explaining why.
  */
 import { NextRequest } from 'next/server';
-import { anthropic, ANTHROPIC_MODEL } from '@/lib/anthropic';
+import { anthropic, ANTHROPIC_MODEL, aiUnavailableReason, aiErrorMessage } from '@/lib/anthropic';
 import { createClient } from '@/lib/supabase/server';
 import { getLiveProjectData, snapshotText, snapshotCounts, type LiveProjectData } from '@/lib/project-data';
 import { answerOffline } from '@/lib/offline-assistant';
@@ -71,14 +73,17 @@ export async function POST(req: NextRequest) {
     'X-Accel-Buffering': 'no',
   };
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const builtinEvents = () => {
     const answer = answerOffline(messages[messages.length - 1].content, mode, data);
-    const body = [
+    return [
       sse({ ...snapshotCounts(data), generatedAt: new Date().toISOString(), engine: 'builtin' }, 'context'),
       ...answer.split(/(?<=\n\n)/).map(text => sse({ text }, 'delta')),
       sse({ engine: 'builtin' }, 'done'),
     ].join('');
-    return new Response(encoder.encode(body), { headers });
+  };
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return new Response(encoder.encode(builtinEvents()), { headers });
   }
 
   const system = `${SYSTEM_BASE}\n\nMODE: ${mode}.\n\nPROJECT SNAPSHOT:\n${snapshotText(data)}`;
@@ -86,6 +91,7 @@ export async function POST(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       controller.enqueue(encoder.encode(sse({ ...snapshotCounts(data), generatedAt: new Date().toISOString(), engine: 'claude' }, 'context')));
+      let sentText = false;
       try {
         const resp = anthropic.messages.stream({
           model: ANTHROPIC_MODEL,
@@ -97,13 +103,22 @@ export async function POST(req: NextRequest) {
 
         for await (const event of resp) {
           if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+            sentText = true;
             controller.enqueue(encoder.encode(sse({ text: event.delta.text }, 'delta')));
           }
         }
         const final = await resp.finalMessage();
         controller.enqueue(encoder.encode(sse({ usage: final.usage, stop_reason: final.stop_reason }, 'done')));
       } catch (err: unknown) {
-        if (!req.signal.aborted) controller.enqueue(encoder.encode(sse({ error: err instanceof Error ? err.message : 'unknown' }, 'error')));
+        if (!req.signal.aborted) {
+          const reason = aiUnavailableReason(err);
+          if (reason && !sentText) {
+            console.error('[assistant] falling back to built-in answers:', reason);
+            controller.enqueue(encoder.encode(sse({ message: `${reason} Showing built-in answers from live data instead.` }, 'notice') + builtinEvents()));
+          } else {
+            controller.enqueue(encoder.encode(sse({ error: aiErrorMessage(err) }, 'error')));
+          }
+        }
       } finally {
         try { controller.close(); } catch { /* already closed by abort */ }
       }

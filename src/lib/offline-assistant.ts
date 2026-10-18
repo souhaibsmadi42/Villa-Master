@@ -16,7 +16,7 @@ const days = (from: string, to: string) => Math.round((+new Date(to) - +new Date
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const has = (q: string, ...words: string[]) => words.some(w => q.includes(w));
 
-type Intent = 'behind' | 'awaiting' | 'overdue' | 'milestone' | 'draft' | 'contractor' | 'status' | 'help';
+type Intent = 'actions' | 'behind' | 'awaiting' | 'overdue' | 'milestone' | 'draft' | 'contractor' | 'status' | 'help';
 
 function intentOf(q: string, mode: 'ask' | 'draft', d: LiveProjectData): { intent: Intent; contractorId?: string } {
   const contractor = d.contractors.find(c => {
@@ -25,6 +25,7 @@ function intentOf(q: string, mode: 'ask' | 'draft', d: LiveProjectData): { inten
   });
   if (mode === 'draft' || has(q, 'draft', 'owner update', 'weekly update', 'write', 'report', 'briefing', 'brief me', 'summary of the week')) return { intent: 'draft' };
   if (contractor) return { intent: 'contractor', contractorId: contractor.id };
+  if (has(q, 'what to do', 'what should', 'next step', 'priorit', 'focus', 'to-do', 'todo', 'action', 'today', 'this week')) return { intent: 'actions' };
   if (has(q, 'overdue', 'late deliverable', 'past due', 'missed')) return { intent: 'overdue' };
   if (has(q, 'approv', 'decision', 'awaiting', 'review', 'sign off', 'sign-off')) return { intent: 'awaiting' };
   if (has(q, 'delay', 'behind', 'blocked', 'block', 'slip', 'late', 'risk', 'critical')) return { intent: 'behind' };
@@ -44,6 +45,25 @@ function unlocks(d: LiveProjectData, id: string) {
 }
 
 const answers: Record<Intent, (d: LiveProjectData, q: string, contractorId?: string) => string> = {
+  actions(d) {
+    const steps: string[] = [];
+    const criticalLate = d.behind.filter(b => b.a.is_critical).concat(d.delayed.filter(a => a.is_critical && !d.behind.some(b => b.a.id === a.id)).map(a => ({ a, gap: 0 })));
+    if (d.awaiting.length) steps.push(`**Decide on ${plural(d.awaiting.length, 'deliverable')}** waiting for review — starting with ${d.awaiting.slice(0, 2).map(x => x.name).join(' and ')} (Deliverables → Awaiting decision).`);
+    if (criticalLate.length) steps.push(`**Unblock the critical path:** ${criticalLate.slice(0, 2).map(({ a }) => `${a.name} (${d.contractorName(a.contractor_id)}, ${a.progress}%)`).join('; ')}.`);
+    const late = [...new Set([...d.delayed, ...d.behind.map(b => b.a)])].filter(a => !a.is_critical);
+    if (late.length) steps.push(`**Chase ${plural(late.length, 'activity', 'activities')} behind plan:** ${late.slice(0, 3).map(a => `${a.name} (${d.contractorName(a.contractor_id)})`).join('; ')}.`);
+    if (d.overdue.length) {
+      const by = new Map<string, number>();
+      d.overdue.forEach(x => by.set(d.contractorName(x.contractor_id), (by.get(d.contractorName(x.contractor_id)) ?? 0) + 1));
+      const top = [...by.entries()].sort((a, b) => b[1] - a[1])[0];
+      steps.push(`**Clear ${plural(d.overdue.length, 'overdue deliverable')}** — most sit with ${top[0]} (${top[1]}). Update their status or agree new dates.`);
+    }
+    const next = d.milestones.find(m => m.status !== 'achieved');
+    if (next?.planned_date) steps.push(`**Prepare for ${next.name}** on ${fmt(next.planned_date)} (${days(d.today, next.planned_date) >= 0 ? `in ${days(d.today, next.planned_date)} days` : `${-days(d.today, next.planned_date)} days late`}).`);
+    if (!steps.length) return `Nothing urgent: no decisions are waiting, nothing is overdue and no activity is behind plan. ${statusLine(d)}`;
+    return ['In order of priority, from the live data:', '', ...steps.map((x, i) => `${i + 1}. ${x}`), '', statusLine(d)].join('\n');
+  },
+
   status(d) {
     const lines = [
       `${d.project?.name ?? 'The project'}${d.week ? ` is in week ${d.week.week}${d.week.total ? ` of ${d.week.total}` : ''}` : ''}${d.phase ? `, in **${d.phase}**` : ''}.`,

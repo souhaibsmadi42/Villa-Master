@@ -10,7 +10,7 @@ import { IndeterminateBar } from '@/components/ui/Spinner';
  * (no silent API spend) and labelled by source: Claude, or computed from live data.
  */
 export function InsightNote() {
-  const [state, setState] = useState<{ kind: 'idle' | 'loading' | 'done' | 'error'; text?: string; ai?: boolean }>({ kind: 'idle' });
+  const [state, setState] = useState<{ kind: 'idle' | 'loading' | 'done' | 'error'; text?: string; ai?: boolean; notice?: string }>({ kind: 'idle' });
 
   async function run() {
     setState({ kind: 'loading' });
@@ -18,7 +18,7 @@ export function InsightNote() {
       const r = await fetch('/api/insight');
       const d = await r.json();
       if (!r.ok || !d.paragraph) return setState({ kind: 'error', text: d.message ?? 'The note could not be written.' });
-      setState({ kind: 'done', text: d.paragraph, ai: !!d.generated });
+      setState({ kind: 'done', text: d.paragraph, ai: !!d.generated, notice: d.notice });
     } catch { setState({ kind: 'error', text: 'Network error.' }); }
   }
 
@@ -44,7 +44,7 @@ export function InsightNote() {
         {state.kind === 'done' && (
           <motion.div key="done" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
             <p className="display mt-3 text-[19px] leading-[1.35] text-ink">{state.text}</p>
-            <p className="mt-2 text-[10.5px] text-faint">{state.ai ? 'Written by Claude from live data · verify before acting' : 'Computed from live data · AI not connected'}</p>
+            <p className="mt-2 text-[10.5px] text-faint">{state.ai ? 'Written by Claude from live data · verify before acting' : state.notice ? `Computed from live data · ${state.notice}` : 'Computed from live data · AI not connected'}</p>
           </motion.div>
         )}
         {state.kind === 'error' && (

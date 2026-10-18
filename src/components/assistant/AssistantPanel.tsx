@@ -10,7 +10,7 @@ import { IndeterminateBar } from '@/components/ui/Spinner';
 import { useShell } from '@/components/chrome/AppShell';
 import { RichText } from './RichText';
 
-type Msg = { role: 'user' | 'assistant'; content: string; error?: boolean; builtin?: boolean };
+type Msg = { role: 'user' | 'assistant'; content: string; error?: boolean; builtin?: boolean; notice?: string };
 type Phase = 'idle' | 'connecting' | 'streaming';
 type Grounding = { activities: number; deliverables: number; milestones: number; generatedAt: string; engine?: 'claude' | 'builtin' };
 
@@ -70,7 +70,7 @@ export function AssistantPanel({ open, onClose, initialPrompt, promptNonce }: {
         return;
       }
       const reader = res.body.getReader(); const decoder = new TextDecoder();
-      let acc = '', buf = '', errored = false, builtin = false;
+      let acc = '', buf = '', errored = false, builtin = false, notice: string | undefined;
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -82,9 +82,10 @@ export function AssistantPanel({ open, onClose, initialPrompt, promptNonce }: {
           if (!ev || !data) continue;
           let parsed: Record<string, unknown>; try { parsed = JSON.parse(data); } catch { continue; }
           if (ev === 'context') { setGrounding(parsed as unknown as Grounding); builtin = parsed.engine === 'builtin'; }
+          if (ev === 'notice' && typeof parsed.message === 'string') notice = parsed.message;
           if (ev === 'delta' && typeof parsed.text === 'string') {
             acc += parsed.text; setPhase('streaming');
-            setMessages([...next, { role: 'assistant', content: acc, builtin }]);
+            setMessages([...next, { role: 'assistant', content: acc, builtin, notice }]);
           }
           if (ev === 'error') {
             errored = true;
@@ -233,6 +234,7 @@ function AssistantMessage({ m, streaming, onRetry }: { m: Msg; streaming: boolea
   );
   return (
     <div className="group w-full text-[13.5px] leading-[1.65] text-ink-2">
+      {m.notice && <div role="status" className="mb-3 rounded-[8px] border border-warning/30 bg-warning/[0.08] px-3 py-2 text-[12px] leading-snug text-ink-2">{m.notice}</div>}
       <RichText text={m.content} />
       {m.builtin && !streaming && <div className="eyebrow mt-2 text-[9px] text-faint">Computed from live data · not AI-written</div>}
       {streaming && <span className="ml-0.5 inline-block h-3.5 w-[2px] translate-y-0.5 bg-accent" style={{ animation: 'vm-caret 1s infinite' }} />}
