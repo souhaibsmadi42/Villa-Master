@@ -17,6 +17,8 @@ export function programmeWeek(start: string | null | undefined, end: string | nu
   return {
     week: Math.max(0, Math.floor((now - s) / (7 * DAY)) + 1),
     total: e ? Math.ceil((e - s) / (7 * DAY)) : null,
+    /** Days until the programme starts; 0 once it has started. */
+    startsIn: Math.max(0, Math.ceil((s - now) / DAY)),
   };
 }
 
@@ -37,6 +39,7 @@ export function currentPhase(stages: StageLite[], acts: PhaseActivity[], now = D
 
 export function healthLabel(m: Metrics) {
   if (!m.total) return { label: 'No data', tone: 'neutral' as const };
+  if (m.plannedToday === 0 && m.progress === 0) return { label: 'Not started', tone: 'neutral' as const };
   if (m.health >= 80) return { label: 'On track', tone: 'success' as const };
   if (m.health >= 60) return { label: 'Watch', tone: 'warning' as const };
   return { label: 'At risk', tone: 'critical' as const };
@@ -156,7 +159,7 @@ export function snapshotText(d: LiveProjectData) {
   return [
     `TODAY: ${d.today}`,
     `PROJECT: ${project?.name ?? 'Unknown'} — ${project?.location ?? ''}`,
-    `Programme: ${fmt(project?.start_date)} → ${fmt(project?.end_date)}${wk ? ` · week ${wk.week}${wk.total ? ` of ${wk.total}` : ''}` : ''}${phase ? ` · current phase "${phase}"` : ''}.`,
+    `Programme: ${fmt(project?.start_date)} → ${fmt(project?.end_date)}${wk ? (wk.startsIn ? ` · not started yet, starts in ${wk.startsIn} days` : ` · week ${wk.week}${wk.total ? ` of ${wk.total}` : ''}`) : ''}${phase ? ` · current phase "${phase}"` : ''}.`,
     `Progress ${m.progress}% earned vs ${m.plannedToday}% planned by today · SPI ${m.spi} · health ${m.health}/100${m.cpi != null ? ` · CPI ${m.cpi}` : ' · no cost data recorded'}.`,
     `Activities visible: ${d.activities.length}. In progress today: ${d.active.length}. Marked delayed: ${d.delayed.length}. ≥15 points behind plan: ${d.behind.length}.`,
     '',

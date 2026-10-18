@@ -22,6 +22,7 @@ Supabase → **SQL Editor** → **New query**. Run these **in order** (paste eac
 1. `supabase/migrations/0001_init.sql`  (tables, RLS, storage bucket)
 2. `supabase/migrations/0002_phase3.sql`  (team, approvals, snapshots)
 3. `supabase/migrations/0003_realtime.sql`  (live feed)
+4. `supabase/migrations/0004_reschedule.sql`  (Timeline → Reschedule; milestone edits)
 
 Open each file from the `phase1/supabase/migrations` folder, copy all, paste, Run.
 

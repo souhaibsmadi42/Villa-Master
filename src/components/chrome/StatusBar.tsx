@@ -43,7 +43,7 @@ export function StatusBar({ onMenu }: { onMenu: () => void }) {
           <div className="min-w-0">
             <div className="truncate text-[13px] font-medium leading-tight text-ink">{summary.projectName}</div>
             <div className="num hidden truncate text-[10.5px] leading-tight text-muted sm:block">
-              {summary.week ? `WK ${String(summary.week.week).padStart(2, '0')}${summary.week.total ? ` / ${summary.week.total}` : ''}` : 'Programme not set'}
+              {summary.week ? (summary.week.startsIn ? `STARTS IN ${summary.week.startsIn}D` : `WK ${String(summary.week.week).padStart(2, '0')}${summary.week.total ? ` / ${summary.week.total}` : ''}`) : 'Programme not set'}
               {summary.phase && <span className="text-faint"> · </span>}{summary.phase}
             </div>
           </div>
@@ -53,7 +53,7 @@ export function StatusBar({ onMenu }: { onMenu: () => void }) {
               <Link href="/dashboard" className="hidden h-7 items-center gap-2 rounded-[7px] border border-line bg-raised/70 px-2.5 text-[11.5px] text-ink-2 transition hover:border-line-strong sm:inline-flex">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ background: toneColor[summary.health.tone] }} />
                 {summary.health.label}
-                <span className="num text-faint">{m.health}</span>
+                {(m.plannedToday > 0 || m.progress > 0) && <span className="num text-faint">{m.health}</span>}
               </Link>
             </Tooltip>
           )}

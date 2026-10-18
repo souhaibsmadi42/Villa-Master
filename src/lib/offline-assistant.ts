@@ -66,7 +66,7 @@ const answers: Record<Intent, (d: LiveProjectData, q: string, contractorId?: str
 
   status(d) {
     const lines = [
-      `${d.project?.name ?? 'The project'}${d.week ? ` is in week ${d.week.week}${d.week.total ? ` of ${d.week.total}` : ''}` : ''}${d.phase ? `, in **${d.phase}**` : ''}.`,
+      `${d.project?.name ?? 'The project'}${d.week ? (d.week.startsIn ? ` starts in ${d.week.startsIn} days (${d.week.total ?? '?'}-week programme)` : ` is in week ${d.week.week}${d.week.total ? ` of ${d.week.total}` : ''}`) : ''}${d.phase ? `, in **${d.phase}**` : ''}.`,
       statusLine(d),
       '',
       `- ${plural(d.active.length, 'activity', 'activities')} scheduled for today`,
@@ -154,7 +154,7 @@ const answers: Record<Intent, (d: LiveProjectData, q: string, contractorId?: str
     const next = d.milestones.find(x => x.status !== 'achieved');
     const recent = d.events.slice(0, 3).map(e => `${e.actor_name ?? 'The team'} ${e.verb} ${e.subject_text ?? ''}`.trim());
     return [
-      `${d.project?.name ?? 'The project'} is ${m.progress}% complete against ${m.plannedToday}% planned${d.week ? ` in week ${d.week.week}` : ''}${d.phase ? `, with ${d.phase} the current focus` : ''}. ${gap >= 0 ? 'The programme is at or ahead of plan.' : `Progress is ${-gap} points behind plan (SPI ${m.spi.toFixed(2)}).`}`,
+      `${d.project?.name ?? 'The project'} is ${m.progress}% complete against ${m.plannedToday}% planned${d.week && !d.week.startsIn ? ` in week ${d.week.week}` : ''}${d.phase ? `, with ${d.phase} the current focus` : ''}. ${gap >= 0 ? 'The programme is at or ahead of plan.' : `Progress is ${-gap} points behind plan (SPI ${m.spi.toFixed(2)}).`}`,
       `${recent.length ? `Recent updates: ${recent.join('; ')}. ` : ''}${late.length ? `${plural(late.length, 'activity', 'activities')} ${late.length === 1 ? 'needs' : 'need'} attention, led by ${late.slice(0, 2).map(a => a.name).join(' and ')}.` : 'No activity is running behind plan.'} ${d.overdue.length ? `${plural(d.overdue.length, 'deliverable is', 'deliverables are')} overdue.` : ''}`.trim(),
       `${d.awaiting.length ? `${plural(d.awaiting.length, 'deliverable awaits', 'deliverables await')} the owner's decision, including ${d.awaiting.slice(0, 2).map(x => x.name).join(' and ')}. ` : 'No decisions are waiting on the owner. '}${next ? `The next milestone is ${next.name}, planned for ${fmt(next.planned_date)}.` : 'All milestones are achieved.'}`,
     ].join('\n\n');

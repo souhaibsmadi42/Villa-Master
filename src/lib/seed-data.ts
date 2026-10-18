@@ -5,7 +5,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const START = new Date(2026, 5, 1); // 1 Jun 2026
+const START = new Date(2026, 10, 1); // 1 Nov 2026
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const addWeeks = (n: number) => { const d = new Date(START); d.setDate(d.getDate() + n * 7); return d; };
 
@@ -31,9 +31,9 @@ const BUILDINGS = [
   { key: 'boundary_wall', name: 'Boundary Wall' }, { key: 'pool', name: 'Pool' }, { key: 'guard_house', name: 'Guard House' },
 ];
 const MILESTONES = [
-  { name: 'Site boundary complete', date: '29 Jul 2026' }, { name: 'Courts ready for play', date: '7 Sep 2026' },
-  { name: 'Municipality approval received', date: '13 Dec 2026' }, { name: 'Structural works complete', date: '30 May 2027' },
-  { name: 'Pool commissioned', date: '22 Aug 2027' }, { name: 'Fit-out complete', date: '31 Oct 2027' }, { name: 'Final handover', date: '5 Dec 2027' },
+  { name: 'Site boundary complete', date: '29 Dec 2026' }, { name: 'Courts ready for play', date: '7 Feb 2027' },
+  { name: 'Municipality approval received', date: '15 May 2027' }, { name: 'Structural works complete', date: '30 Oct 2027' },
+  { name: 'Pool commissioned', date: '22 Jan 2028' }, { name: 'Fit-out complete', date: '1 Apr 2028' }, { name: 'Final handover', date: '6 May 2028' },
 ];
 type Phase = { name: string; start: number; dur: number; c: string; stage: string; notes: string };
 const PHASES: Phase[] = [
@@ -82,16 +82,16 @@ function deliverablesFor(p: Phase) {
   }));
   const n = p.name;
   if (p.c === 'design') {
-    if (n.includes('Concept')) return mk([['Concept design package (PDF)', 'Drawings', 'in-progress', 'high', '5 Jul 2026'], ['Owner brief acknowledgement', 'Report', 'approved', 'high', '8 Jun 2026'], ['Site analysis & solar studies', 'Drawings', 'in-progress', 'med', '20 Jun 2026'], ['Massing model (3D)', 'BIM', 'pending', 'med', '28 Jun 2026']]);
-    if (n.includes('Schematic')) return mk([['Schematic plans, sections, elevations', 'Drawings', 'submitted', 'high', '10 Aug 2026'], ['Area & GFA schedule', 'Report', 'pending', 'high', '10 Aug 2026'], ['Cost estimate — class C', 'Report', 'pending', 'high', '14 Aug 2026']]);
-    if (n.includes('Design development')) return mk([['Full DD drawing set', 'Drawings', 'pending', 'high', '30 Sep 2026'], ['Material schedule + samples board', 'Material Approval', 'pending', 'high', '25 Sep 2026'], ['Updated cost estimate — class B', 'Report', 'pending', 'high', '4 Oct 2026']]);
-    if (n.includes('Municipality')) return mk([['Permit drawing package', 'Drawings', 'pending', 'high', '5 Oct 2026'], ['Structural calculations', 'Report', 'pending', 'high', '5 Oct 2026'], ['Final approval certificate', 'Handover', 'pending', 'high', '13 Dec 2026']]);
-    if (n.includes('BIM')) return mk([['Architectural federated model (LOD 300)', 'BIM', 'pending', 'high', '10 Jan 2027'], ['Clash detection report', 'QA/QC', 'pending', 'high', '25 Jan 2027']]);
+    if (n.includes('Concept')) return mk([['Concept design package (PDF)', 'Drawings', 'in-progress', 'high', '5 Dec 2026'], ['Owner brief acknowledgement', 'Report', 'approved', 'high', '8 Nov 2026'], ['Site analysis & solar studies', 'Drawings', 'in-progress', 'med', '20 Nov 2026'], ['Massing model (3D)', 'BIM', 'pending', 'med', '28 Nov 2026']]);
+    if (n.includes('Schematic')) return mk([['Schematic plans, sections, elevations', 'Drawings', 'submitted', 'high', '10 Jan 2027'], ['Area & GFA schedule', 'Report', 'pending', 'high', '10 Jan 2027'], ['Cost estimate — class C', 'Report', 'pending', 'high', '14 Jan 2027']]);
+    if (n.includes('Design development')) return mk([['Full DD drawing set', 'Drawings', 'pending', 'high', '2 Mar 2027'], ['Material schedule + samples board', 'Material Approval', 'pending', 'high', '25 Feb 2027'], ['Updated cost estimate — class B', 'Report', 'pending', 'high', '6 Mar 2027']]);
+    if (n.includes('Municipality')) return mk([['Permit drawing package', 'Drawings', 'pending', 'high', '7 Mar 2027'], ['Structural calculations', 'Report', 'pending', 'high', '7 Mar 2027'], ['Final approval certificate', 'Handover', 'pending', 'high', '15 May 2027']]);
+    if (n.includes('BIM')) return mk([['Architectural federated model (LOD 300)', 'BIM', 'pending', 'high', '12 Jun 2027'], ['Clash detection report', 'QA/QC', 'pending', 'high', '27 Jun 2027']]);
   }
-  if (p.c === 'boundary') return mk([['Wall construction shop drawings', 'Shop Drawings', 'pending', 'high', '1 Jul 2026'], ['Stone cladding sample approval', 'Material Approval', 'pending', 'med', '5 Jul 2026'], ['As-built wall record', 'Handover', 'pending', 'med', '29 Jul 2026']]);
-  if (p.c === 'courts') return mk([['Sport surface sample sign-off', 'Material Approval', 'pending', 'high', '10 Aug 2026'], ['Fencing & lighting layout', 'Shop Drawings', 'pending', 'med', '15 Aug 2026'], ['Court line marking record', 'Handover', 'pending', 'low', '7 Sep 2026']]);
+  if (p.c === 'boundary') return mk([['Wall construction shop drawings', 'Shop Drawings', 'pending', 'high', '1 Dec 2026'], ['Stone cladding sample approval', 'Material Approval', 'pending', 'med', '5 Dec 2026'], ['As-built wall record', 'Handover', 'pending', 'med', '29 Dec 2026']]);
+  if (p.c === 'courts') return mk([['Sport surface sample sign-off', 'Material Approval', 'pending', 'high', '10 Jan 2027'], ['Fencing & lighting layout', 'Shop Drawings', 'pending', 'med', '15 Jan 2027'], ['Court line marking record', 'Handover', 'pending', 'low', '7 Feb 2027']]);
   if (p.c === 'excavation') return mk([['Excavation method statement', 'Coordination', 'pending', 'high'], ['Soil test results', 'QA/QC', 'pending', 'high'], ['Trench safety inspection', 'Inspection', 'pending', 'high']]);
-  if (p.c === 'konn') return mk([['Precast shop drawings', 'Shop Drawings', 'pending', 'high', '10 Feb 2027'], ['Mix design & cube test reports', 'QA/QC', 'pending', 'high', '15 Feb 2027'], ['Handover quality dossier', 'Handover', 'pending', 'high', '2 May 2027']]);
+  if (p.c === 'konn') return mk([['Precast shop drawings', 'Shop Drawings', 'pending', 'high', '13 Jul 2027'], ['Mix design & cube test reports', 'QA/QC', 'pending', 'high', '18 Jul 2027'], ['Handover quality dossier', 'Handover', 'pending', 'high', '2 Oct 2027']]);
   if (p.c === 'steel') return mk([['Structural shop drawings', 'Shop Drawings', 'pending', 'high'], ['Steel mill certificates', 'QA/QC', 'pending', 'med'], ['Weld / bolt inspection report', 'Inspection', 'pending', 'high'], ['As-built records', 'Handover', 'pending', 'med']]);
   if (p.c === 'fitout') return mk([['Material samples board', 'Material Approval', 'pending', 'high'], ['Finishes shop drawings', 'Shop Drawings', 'pending', 'med'], ['Snag-free sign-off', 'QA/QC', 'pending', 'high']]);
   if (p.c === 'all') return mk([['Mobilisation / snag plan', 'Coordination', 'pending', 'high'], ['Handover dossier', 'Handover', 'pending', 'high']]);
@@ -126,7 +126,7 @@ export async function seedDatabase(sb: SupabaseClient) {
 
   const { data: proj, error: pe } = await sb.from('project').insert({
     name: 'Villa Ajloun', location: 'Ajloun, Jordan', client_name: 'Mr. Khalid Al Smadi',
-    start_date: iso(START), end_date: '2027-12-05', budget: 0, currency: 'JOD',
+    start_date: iso(START), end_date: iso(new Date(MILESTONES[MILESTONES.length - 1].date)), budget: 0, currency: 'JOD',
   }).select().single();
   if (pe) throw pe;
   const projectId = proj!.id;

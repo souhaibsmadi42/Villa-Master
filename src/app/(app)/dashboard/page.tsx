@@ -110,7 +110,7 @@ export default async function DashboardPage() {
         <div>
           <div className="eyebrow flex items-center gap-2">
             <span className="h-px w-4 bg-current opacity-50" />
-            Overview{wk ? <> · Week <span className="text-ink">{wk.week}</span>{wk.total ? ` of ${wk.total}` : ''}</> : null}
+            Overview{wk ? (wk.startsIn ? <> · Starts in <span className="text-ink">{wk.startsIn}</span> {wk.startsIn === 1 ? 'day' : 'days'}</> : <> · Week <span className="text-ink">{wk.week}</span>{wk.total ? ` of ${wk.total}` : ''}</>) : null}
             {profile?.role === 'contractor' && ' · your scope'}
           </div>
           <h1 className="display mt-3 text-[clamp(40px,6vw,76px)] text-ink">

@@ -26,7 +26,7 @@ Seed the database with `npm run seed` (CLI) or `/api/seed?secret=$CRON_SECRET` a
 | `/` | Public landing — cinematic opening, project, programme to scale, trades, milestones. Figures come from `PROGRAMME` in `lib/seed-data.ts`. |
 | `/login` | One-time-code sign-in (Supabase OTP). |
 | `/dashboard` | Overview: completion vs plan, building progress on the elevation, needs-attention list, milestones, S-curve, contractor progress, computed insights, live activity feed. |
-| `/timeline` | Gantt: zoom, colour by contractor/status, baseline, critical path, milestone lane, dependency tracing, today marker, docked detail. |
+| `/timeline` | Gantt: zoom, colour by contractor/status, baseline, critical path, milestone lane, dependency tracing, today marker, docked detail. Admins can **Reschedule** the whole programme to a new start date (needs migration `0004_reschedule.sql`). |
 | `/contractors`, `/contractors/[id]` | Contractor workspace: standing vs plan, current tasks, deadlines, outstanding actions, scope chart. |
 | `/deliverables` | List / board, search (`/`), status pipeline filter, approvals with history, inline edits, delete with confirmation. Supports `?status=awaiting|overdue|<status>` and `?focus=<id>`. |
 | `/documents` | Versioned documents: drag-and-drop upload, version history, download tracking, approve/reject. Supports `?q=`. |

@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
+import { getSessionProfile } from '@/lib/rbac';
 import { fmtDate } from '@/lib/format';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Panel } from '@/components/ui/Panel';
 import { EmptyState } from '@/components/ui/States';
+import { RescheduleControl } from '@/components/gantt/RescheduleControl';
 import { GanttChart, type GanttActivity, type GanttStage, type GanttContractor, type GanttDep, type GanttMilestone } from '@/components/gantt/GanttChart';
 
 export const dynamic = 'force-dynamic';
@@ -12,12 +14,14 @@ export default async function TimelinePage() {
   const sb = await createClient();
 
   // RLS scopes activities to what the user may see (contractor → own scope).
-  const [{ data: activities }, { data: stages }, { data: contractors }, { data: deps }, { data: milestones }] = await Promise.all([
+  const [{ data: activities }, { data: stages }, { data: contractors }, { data: deps }, { data: milestones }, { data: project }, profile] = await Promise.all([
     sb.from('activity').select('id,name,stage_id,contractor_id,start_date,end_date,baseline_start,baseline_end,progress,status,is_critical').order('sort'),
     sb.from('stage').select('id,name,ord').order('ord'),
     sb.from('contractor').select('id,name,color').order('name'),
     sb.from('activity_dependency').select('predecessor_id,successor_id'),
     sb.from('milestone').select('id,name,planned_date,actual_date,status').order('ord'),
+    sb.from('project').select('id,start_date').limit(1).maybeSingle(),
+    getSessionProfile(),
   ]);
 
   const acts = (activities ?? []) as GanttActivity[];
@@ -31,7 +35,8 @@ export default async function TimelinePage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader kicker="Programme" title={<>Master <em className="italic text-accent">timeline</em></>}
-        sub={first && last ? <>From {fmtDate(first)} to {fmtDate(last)}. Every activity, dependency and milestone, drawn against today.</> : undefined}>
+        sub={first && last ? <>From {fmtDate(first)} to {fmtDate(last)}. Every activity, dependency and milestone, drawn against today.</> : undefined}
+        actions={profile?.role === 'admin' && project?.start_date ? <RescheduleControl projectId={project.id} start={project.start_date} today={new Date().toISOString().slice(0, 10)} /> : undefined}>
         <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-2">
           {[['Activities', acts.length], ['Dependencies', (deps ?? []).length], ['Critical path', critical], ['Milestones', (milestones ?? []).length]].map(([k, v]) => (
             <div key={k as string}><dt className="eyebrow text-[9.5px]">{k}</dt><dd className="num mt-0.5 text-[15px] text-ink">{v}</dd></div>
