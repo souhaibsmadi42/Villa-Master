@@ -42,3 +42,6 @@ do $$ begin
   create policy p_mile_write on milestone for update
     using (my_role() in ('admin','consultant')) with check (my_role() in ('admin','consultant'));
 exception when duplicate_object then null; end $$;
+
+-- Make the new function visible to the API straight away.
+notify pgrst, 'reload schema';
