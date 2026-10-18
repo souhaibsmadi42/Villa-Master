@@ -1,68 +1,63 @@
-# Villa Ajloun — Phase 1
+# Villa Master — Villa Ajloun
 
-The first build slice of the strategy in `../DESIGN_STRATEGY.md`. A Next.js 15 app with the design tokens, primitives, Hero Scene 1, the global chrome (cursor light, Now Bar, ⌘K command palette), and a working AI Project Assistant streaming from Claude.
-
-```
-phase1/
-├── package.json
-├── next.config.mjs · tsconfig.json · tailwind.config.ts · postcss.config.mjs
-├── .env.example
-├── supabase/migrations/0001_init.sql      Postgres schema + RLS
-├── BIM_VIEWER.md                          Speckle integration brief + code
-├── AI_ASSISTANT.md                        Wiring, prompts, roadmap
-└── src/
-    ├── app/
-    │   ├── layout.tsx · page.tsx · globals.css
-    │   └── api/
-    │       ├── assistant/route.ts         Streaming Claude endpoint
-    │       └── insight/route.ts           Dashboard "editor's note"
-    ├── components/
-    │   ├── ui/                            GlassPanel, Eyebrow, Pill, Ring,
-    │   │                                  Magnet, MetricBlock
-    │   ├── chrome/                        CursorLight, NowBar, CommandPalette
-    │   ├── scenes/                        HeroThreshold
-    │   ├── assistant/                     AssistantLauncher, AssistantPanel
-    │   └── bim/                           SiteViewer + Speckle adapter
-    ├── lib/                               cn, fonts, anthropic, project-context,
-    │                                      use-shortcuts
-    ├── motion/variants.ts                 swoopIn, splitLineUp, drawerIn, …
-    └── styles/tokens.css                  Ajloun Stone palette + motion tokens
-```
+The project intelligence platform for the Villa Ajloun build (Ajloun, Jordan): programme, contractors,
+deliverables, documents, the 3D model and an AI project assistant — Next.js 15 + Supabase.
 
 ## Run it
 
 ```bash
-cd phase1
-cp .env.example .env.local       # add ANTHROPIC_API_KEY
-pnpm install                     # or npm install
-pnpm dev                         # http://localhost:3000
+npm install
+# .env.local
+#   NEXT_PUBLIC_SUPABASE_URL=…            NEXT_PUBLIC_SUPABASE_ANON_KEY=…   (or _PUBLISHABLE_KEY)
+#   ANTHROPIC_API_KEY=…                    (assistant, insight note, weekly reports)
+#   optional: ANTHROPIC_MODEL, RESEND_API_KEY, RESEND_FROM, CRON_SECRET, SUPABASE_SECRET_KEY,
+#             NEXT_PUBLIC_SPECKLE_STREAM_ID
+npm run dev          # http://localhost:3000
+npm run typecheck    # tsc --noEmit
+npm run build        # type errors fail the build
 ```
 
-You should see:
+Seed the database with `npm run seed` (CLI) or `/api/seed?secret=$CRON_SECRET` after deploying.
 
-- A cinematic hero ("A villa is being built in Ajloun.") with parallax, particles, three floating glass cards, magnetic CTAs, scroll cue.
-- A **Now Bar** floating at top — Villa Ajloun · Week 28 · Health 94 · ⌘K · 🔔 · theme toggle.
-- A **cursor light** following the mouse.
-- A **floating "Ask Villa"** button bottom-right → opens a side drawer with a streaming chat against Claude.
-- `⌘K` (Mac) / `Ctrl+K` opens the **command palette**.
+## Routes
 
-## What's wired vs. stubbed
-
-| Wired & working | Stubbed for Phase 2 |
+| Route | What it is |
 | --- | --- |
-| Tokens, fonts, glass system, motion variants | Routes for `/dashboard`, `/timeline`, `/contractors`, `/deliverables` |
-| Hero Scene 1 (Threshold) | Scenes 2–12 |
-| Cursor light · Now Bar · Command Palette | Palette result actions (currently navigates by label only) |
-| AI Assistant streaming (`/api/assistant`) | Tool calling (function-call style "do X" actions) |
-| Smart Insight endpoint (`/api/insight`) | Live snapshot from Supabase (currently uses `DEMO_SNAPSHOT`) |
-| BIM `SiteViewer` shell with Speckle adapter | Real model load (requires `@speckle/viewer` install + stream id) |
-| Supabase schema + RLS | Auth flow + page-level guards |
+| `/` | Public landing — cinematic opening, project, programme to scale, trades, milestones. Figures come from `PROGRAMME` in `lib/seed-data.ts`. |
+| `/login` | One-time-code sign-in (Supabase OTP). |
+| `/dashboard` | Overview: completion vs plan, building progress on the elevation, needs-attention list, milestones, S-curve, contractor progress, computed insights, live activity feed. |
+| `/timeline` | Gantt: zoom, colour by contractor/status, baseline, critical path, milestone lane, dependency tracing, today marker, docked detail. |
+| `/contractors`, `/contractors/[id]` | Contractor workspace: standing vs plan, current tasks, deadlines, outstanding actions, scope chart. |
+| `/deliverables` | List / board, search (`/`), status pipeline filter, approvals with history, inline edits, delete with confirmation. Supports `?status=awaiting|overdue|<status>` and `?focus=<id>`. |
+| `/documents` | Versioned documents: drag-and-drop upload, version history, download tracking, approve/reject. Supports `?q=`. |
+| `/milestones`, `/map`, `/reports`, `/owner`, `/team` | Milestone road with delay tracking; site map by zone; weekly reports; owner executive view; team & access (admin). |
+| `/site` | **Model viewer** — open GLB, glTF, FBX, OBJ (+MTL/textures), STL, PLY, DAE, 3MF in the browser; orbit, clay/wire modes, Y/Z-up, section cut, part visibility, element details, screenshot, fullscreen; *Save to project* stores single-file models in Supabase Storage (`documents` bucket) as documents. |
+| `/activities/[id]` | Activity detail (also opens as a drawer from in-app links). |
 
-## Next steps (in order)
+## Design system
 
-1. **Get the assistant talking.** Set `ANTHROPIC_API_KEY`, run `pnpm dev`, click "Ask Villa", ask *"What's blocked this week?"*. You'll see the snapshot-grounded answer stream in.
-2. **Apply the Supabase schema.** `supabase db reset` or paste `0001_init.sql` into the SQL editor. Then swap `DEMO_SNAPSHOT` for `getLiveSnapshot()` (sketched in `AI_ASSISTANT.md`).
-3. **Add a Speckle stream.** Push your first model to <https://speckle.xyz>, set `NEXT_PUBLIC_SPECKLE_*` env vars, `pnpm add @speckle/viewer`. The `SiteViewer` is already wired.
-4. **Build Scene 2 (The Brief).** Use the same pattern as `HeroThreshold` — `motion/variants.ts` already has `splitLineUp` and `swoopIn`. Should take an afternoon.
+- **Tokens** — `src/app/globals.css` (RGB-channel CSS variables, light + dark themes) mapped in `tailwind.config.ts`
+  (`canvas`, `surface`, `raised`, `ink`, `muted`, `accent`, `success`, `warning`, `critical`, brand constants `obsidian`, `limestone`, `bronze`, …).
+- **Type** — Instrument Serif (display), Geist (interface), Geist Mono (technical). All self-hosted — no build-time font downloads.
+- **Motion** — `src/motion/tokens.ts` (durations, easings, springs) and `src/motion/variants.ts`. `MotionConfig reducedMotion="user"` plus a CSS
+  reduced-motion rule make every animation respect `prefers-reduced-motion`. Landing intro runs once; returning visitors get the short version.
+- **Primitives** — `src/components/ui/`: Button, Panel, Badge, Ring, AnimatedNumber, Segmented/Switch/Chip/ProgressBar, Sheet, Drawer,
+  ConfirmDialog (`useConfirm`), Toast (`useToast`), Tooltip, Popover, PageHeader, EmptyState/ErrorState/Skeleton.
+- **Shell** — `src/components/chrome/`: sidebar (rail on tablet, drawer on mobile), floating status bar (live health, week, phase, notifications,
+  theme, account), ⌘K / Ctrl+K command palette (navigation, recent, actions, project search), ⌘J / Ctrl+J assistant.
 
-The strategy doc has the week-by-week roadmap. This Phase 1 slice corresponds to Weeks 1–3 of that roadmap, executed in a single pass so you can feel the system before committing to the rest.
+## AI assistant
+
+`/api/assistant` streams Claude's answer (SSE: `context`, `delta`, `done`, `error`) grounded in a live, RLS-scoped snapshot
+built by `getLiveSnapshotText()` in `src/lib/project-data.ts`. It requires a signed-in user. Suggestions are visibly separated
+from recorded facts. **Without `ANTHROPIC_API_KEY`** it still works: `src/lib/offline-assistant.ts` answers the common
+questions (status, delays and what they hold up, approvals, overdue items, next milestone, any contractor, a weekly-update draft)
+directly from the same live data, and the UI labels those answers "Computed from live data · not AI-written". Add the key and the
+same panel switches to Claude automatically.
+
+## Notes
+
+- The hero / overview image is an **original illustrative SVG elevation** (`components/scenes/Elevation.tsx`), labelled as such.
+  It is not site photography or the design model.
+- Speckle streaming remains optional (`components/bim/speckle/`, see `BIM_VIEWER.md`); uploaded models need no extra packages.
+- The site map uses `building.map_x/y/w/h` when recorded; otherwise it shows a labelled schematic arrangement.

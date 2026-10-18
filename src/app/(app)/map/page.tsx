@@ -1,13 +1,14 @@
 import { createClient } from '@/lib/supabase/server';
-import { Eyebrow } from '@/components/ui/Eyebrow';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { SiteMap, type BuildingNode } from '@/components/map/SiteMap';
 
 export const dynamic = 'force-dynamic';
+export const metadata = { title: 'Site map' };
 
 export default async function MapPage() {
   const sb = await createClient();
   const [{ data: buildings }, { data: activities }] = await Promise.all([
-    sb.from('building').select('id,key,name').order('key'),
+    sb.from('building').select('id,key,name,map_x,map_y,map_w,map_h').order('key'),
     sb.from('activity').select('id,name,progress,weight,status,building_id, contractor:contractor_id(name)'),
   ]);
 
@@ -16,9 +17,10 @@ export default async function MapPage() {
     const own = acts.filter(a => a.building_id === b.id);
     const W = own.reduce((s, a) => s + (a.weight || 1), 0) || 1;
     const progress = Math.round(own.reduce((s, a) => s + (a.weight || 1) * a.progress, 0) / W);
-    const contractors = Array.from(new Set(own.map((a: any) => a.contractor?.name).filter(Boolean)));
+    const contractors = Array.from(new Set(own.map(a => { const c = a.contractor as { name: string } | { name: string }[] | null; return Array.isArray(c) ? c[0]?.name : c?.name; }).filter((n): n is string => !!n)));
     return {
       id: b.id, key: b.key, name: b.name,
+      plan: b.map_x != null && b.map_y != null && b.map_w != null && b.map_h != null ? { x: b.map_x, y: b.map_y, w: b.map_w, h: b.map_h } : null,
       progress: own.length ? progress : 0,
       contractors,
       activities: own.map(a => ({ id: a.id, name: a.name, progress: a.progress, status: a.status })),
@@ -37,11 +39,8 @@ export default async function MapPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <Eyebrow>Villa Ajloun · Site</Eyebrow>
-        <h1 className="font-display text-[clamp(28px,4vw,44px)] tracking-tighter mt-1">Project Map</h1>
-        <p className="text-stone text-[13px]">Progress by building. Click a zone to drill in.</p>
-      </div>
+      <PageHeader kicker="Site" title={<>The site, <em className="italic text-accent">zone by zone</em></>}
+        sub="Progress by building, weighted by the activities assigned to each zone. Select a zone to drill in." />
       <SiteMap buildings={nodes} />
     </div>
   );

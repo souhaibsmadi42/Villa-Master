@@ -1,23 +1,19 @@
-import { Cormorant_Garamond, Inter, JetBrains_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
 
-export const fontDisplay = Cormorant_Garamond({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
-  style: ['normal', 'italic'],
+// Self-hosted: no build-time request to Google Fonts.
+// Instrument Serif — editorial headlines (SIL OFL, see fonts/InstrumentSerif-OFL.txt).
+export const fontDisplay = localFont({
+  src: [
+    { path: '../app/fonts/InstrumentSerif-Regular.woff2', weight: '400', style: 'normal' },
+    { path: '../app/fonts/InstrumentSerif-Italic.woff2', weight: '400', style: 'italic' },
+  ],
   variable: '--font-display',
   display: 'swap',
+  fallback: ['Times New Roman', 'serif'],
 });
 
-export const fontSans = Inter({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-sans',
-  display: 'swap',
-});
-
-export const fontMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-mono',
-  display: 'swap',
-});
+// Geist — interface text. Geist Mono — technical metadata, identifiers, numbers.
+export const fontSans = GeistSans;
+export const fontMono = GeistMono;

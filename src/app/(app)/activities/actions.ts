@@ -14,7 +14,7 @@ export async function updateActivity(id: string, patch: { progress?: number; sta
   const { error } = await sb.from('activity').update(clean).eq('id', id);
   if (error) return { ok: false, error: error.message };
   await logEvent(sb, 'updated', 'activity', id);
-  revalidatePath(`/activities/${id}`); revalidatePath('/timeline'); revalidatePath('/dashboard');
+  revalidatePath(`/activities/${id}`); revalidatePath('/timeline'); revalidatePath('/dashboard'); revalidatePath('/contractors', 'layout');
   return { ok: true };
 }
 
@@ -34,7 +34,7 @@ export async function upsertDeliverable(input: {
   const { error } = await q;
   if (error) return { ok: false, error: error.message };
   await logEvent(sb, input.id ? 'updated' : 'created', 'deliverable', input.id ?? input.activityId, input.name);
-  revalidatePath(`/activities/${input.activityId}`); revalidatePath('/dashboard');
+  revalidatePath(`/activities/${input.activityId}`); revalidatePath('/dashboard'); revalidatePath('/deliverables'); revalidatePath('/contractors', 'layout');
   return { ok: true };
 }
 
@@ -42,7 +42,7 @@ export async function deleteDeliverable(id: string, activityId: string) {
   const sb = await createClient();
   const { error } = await sb.from('deliverable').delete().eq('id', id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath(`/activities/${activityId}`); revalidatePath('/dashboard');
+  revalidatePath(`/activities/${activityId}`); revalidatePath('/dashboard'); revalidatePath('/deliverables');
   return { ok: true };
 }
 
@@ -52,7 +52,7 @@ export async function decideDeliverable(id: string, decision: 'approved' | 'reje
   const { error } = await sb.rpc('approve_deliverable', { p_id: id, p_decision: decision });
   if (error) return { ok: false, error: error.message };
   if (activityId) revalidatePath(`/activities/${activityId}`);
-  revalidatePath('/owner'); revalidatePath('/dashboard');
+  revalidatePath('/owner'); revalidatePath('/dashboard'); revalidatePath('/deliverables');
   return { ok: true };
 }
 

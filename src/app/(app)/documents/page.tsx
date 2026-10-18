@@ -1,11 +1,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { getSessionProfile } from '@/lib/rbac';
-import { Eyebrow } from '@/components/ui/Eyebrow';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { DocumentCenter, type Doc } from '@/components/documents/DocumentCenter';
 
 export const dynamic = 'force-dynamic';
+export const metadata = { title: 'Documents' };
 
-export default async function DocumentsPage() {
+export default async function DocumentsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const { q } = await searchParams;
   const sb = await createClient();
   const profile = await getSessionProfile();
   const role = profile?.role ?? 'contractor';
@@ -28,16 +30,14 @@ export default async function DocumentsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <Eyebrow>Villa Ajloun · Documents</Eyebrow>
-        <h1 className="font-display text-[clamp(28px,4vw,44px)] tracking-tighter mt-1">Document Center</h1>
-        <p className="text-stone text-[13px]">Drawings, BOQ, RFIs, submittals — with versions, approvals, and download tracking.</p>
-      </div>
+      <PageHeader kicker="Delivery" title={<>Document <em className="italic text-accent">centre</em></>}
+        sub="Drawings, BOQs, RFIs and submittals — versioned, approved and tracked." />
       <DocumentCenter
         projectId={project?.id ?? ''}
         docs={docs}
         canApprove={role === 'admin' || role === 'consultant' || role === 'owner'}
         canUpload={role !== 'owner'}
+        initialQuery={q ?? ''}
       />
     </div>
   );

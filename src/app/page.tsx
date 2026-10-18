@@ -1,120 +1,170 @@
 import Link from 'next/link';
+import { ArrowRight, SquareChartGantt, FileCheck2, FolderOpen, Box, Sparkles, ScrollText } from 'lucide-react';
+import { PROGRAMME } from '@/lib/seed-data';
+import { LandingHero } from '@/components/landing/LandingHero';
+import { LandingNav } from '@/components/landing/LandingNav';
+import { ProgrammeStrip } from '@/components/landing/ProgrammeStrip';
+import { MilestoneRoad } from '@/components/landing/MilestoneRoad';
+import { Reveal, LineReveal } from '@/components/marketing/Reveal';
 import { CursorLight } from '@/components/chrome/CursorLight';
-import { HeroThreshold } from '@/components/scenes/HeroThreshold';
-import { Reveal } from '@/components/marketing/Reveal';
-import { Eyebrow } from '@/components/ui/Eyebrow';
-import { GlassPanel } from '@/components/ui/GlassPanel';
-import { ThemeToggle } from '@/components/chrome/ThemeToggle';
+import { ButtonLink } from '@/components/ui/Button';
 
-const STATS = [
-  { v: '108', l: 'weeks' }, { v: '5', l: 'contractors' }, { v: '33', l: 'activities' }, { v: '4', l: 'stages' },
-];
-const STAGES = [
-  { n: '00', t: 'Design & Approvals', d: 'Concept → schematic → DD → municipality approval → BIM model.' },
-  { n: '01', t: 'Boundary, Courts & Gym', d: 'Perimeter wall, guard house, football & paddle courts, gym structure.' },
-  { n: '02', t: 'Main Structural Works', d: 'Foundations, precast suite, steel chalet, wellness centre, envelope, pool.' },
-  { n: '03', t: 'Fit-out & Finishes', d: 'Interiors, joinery, MEP commissioning, landscape, snagging, handover.' },
-];
-const CONTRACTORS = [
-  { n: 'Design / Admin', c: '#8C7B6B' }, { n: 'Boundary Wall Co.', c: '#C47C3A' }, { n: 'Courts Co.', c: '#7A6B8A' },
-  { n: 'KONN — Precast', c: '#3C8EBF' }, { n: 'Steel Structure Co.', c: '#7A9E7E' }, { n: 'Fit-out Co.', c: '#B06070' },
-];
-const MILESTONES = [
-  ['Site boundary complete', '29 Jul 2026'], ['Municipality approval', '13 Dec 2026'],
-  ['Structure complete', '30 May 2027'], ['Pool commissioned', '22 Aug 2027'], ['Final handover', '5 Dec 2027'],
+// Short, factual descriptions of each zone (from the project brief in the repo).
+const ZONE_NOTES: Record<string, string> = {
+  main_chalet: 'Two-storey steel-framed duplex — the heart of the villa.',
+  private_suite: 'Standalone suite in KONN precast panels.',
+  wellness: 'Jacuzzi, sauna and steam below; gym on the upper floor.',
+  courts: 'Football and paddle courts with a full glass enclosure.',
+  boundary_wall: 'Stone-clad perimeter wall defining the site.',
+  pool: '12 m × 5 m pool with its plant room.',
+  guard_house: 'Light steel guard studio at the gate.',
+};
+
+const MODULES = [
+  { icon: SquareChartGantt, t: 'Programme', d: 'A living Gantt of every activity, dependency and the critical path — with baseline against plan.' },
+  { icon: FileCheck2, t: 'Deliverables', d: 'Submissions, reviews and approvals per contractor, with due dates that cannot quietly slip.' },
+  { icon: FolderOpen, t: 'Documents', d: 'Drawings, BOQs, RFIs and submittals with versions, approvals and download history.' },
+  { icon: Box, t: 'Model viewer', d: 'Open OBJ, FBX, glTF and STL models in the browser and keep them with the project.' },
+  { icon: Sparkles, t: 'Project assistant', d: 'Ask about the programme in plain language — answered from live project data, never invented.' },
+  { icon: ScrollText, t: 'Owner reporting', d: 'Weekly owner updates drafted from the real numbers, ready to review and send.' },
 ];
 
 export default function Home() {
+  const P = PROGRAMME;
   return (
-    <main className="relative">
+    <main className="relative bg-canvas">
       <CursorLight />
+      <LandingNav />
+      <LandingHero facts={{ start: P.start, handover: P.handover, weeks: P.weeks, activities: P.activities, stages: P.stages.length, trades: P.trades.length }} />
 
-      {/* top bar */}
-      <div className="fixed top-4 right-5 z-50 flex items-center gap-2">
-        <div className="glass rounded-full p-0.5"><ThemeToggle /></div>
-        <Link href="/login" className="rounded-full bg-bark/90 text-cream backdrop-blur px-5 py-2.5 text-[12.5px] font-semibold hover:bg-bark transition shadow-e2">Sign in →</Link>
-      </div>
-
-      <HeroThreshold />
-
-      {/* Stats band */}
-      <section className="px-6 sm:px-14 lg:px-24 py-20 bg-cream">
-        <Reveal><Eyebrow>The project at a glance</Eyebrow></Reveal>
-        <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-6">
-          {STATS.map((s, i) => (
-            <Reveal key={s.l} delay={i * 0.08}>
-              <div className="font-display text-[clamp(44px,7vw,72px)] tracking-tighter leading-none">{s.v}</div>
-              <div className="eyebrow mt-2">{s.l}</div>
+      {/* The project — sticky editorial statement + zones */}
+      <section id="project" className="relative scroll-mt-20 border-b border-line">
+        <div className="mx-auto grid max-w-[1440px] gap-12 px-6 py-24 sm:px-10 lg:grid-cols-[1fr_1.15fr] lg:gap-20 lg:px-16 lg:py-36">
+          <div className="lg:sticky lg:top-28 lg:self-start">
+            <Reveal><div className="eyebrow flex items-center gap-2"><span className="h-px w-6 bg-accent" />01 · The project</div></Reveal>
+            <h2 className="display mt-6 text-[clamp(38px,5.4vw,76px)] text-ink">
+              <LineReveal lines={[`${P.buildings.length} buildings`, 'on a terraced', <em key="h" className="italic text-accent">Ajloun hillside.</em>]} />
+            </h2>
+            <Reveal delay={0.2}>
+              <p className="mt-8 max-w-[44ch] text-[15px] leading-relaxed text-muted">
+                A private residence of stone, steel and precast — delivered by {P.trades.length} trades across {P.stages.length} stages.
+                Villa Master holds the whole of it: who is doing what, by when, and what still needs a decision.
+              </p>
             </Reveal>
-          ))}
+          </div>
+          <ol className="border-t border-line">
+            {P.buildings.map((b, i) => (
+              <Reveal key={b.key} delay={i * 0.05}>
+                <li className="group grid grid-cols-[48px_1fr] gap-x-4 border-b border-line py-7 transition-colors hover:bg-ink/[0.015] sm:grid-cols-[64px_1fr_auto]">
+                  <span className="num pt-2 text-[11px] text-faint">{String(i + 1).padStart(2, '0')}</span>
+                  <div>
+                    <div className="display text-[clamp(26px,3vw,36px)] text-ink transition-transform duration-swoop ease-swoop group-hover:translate-x-1">{b.name}</div>
+                    <p className="mt-1.5 text-[13.5px] text-muted">{ZONE_NOTES[b.key]}</p>
+                  </div>
+                </li>
+              </Reveal>
+            ))}
+          </ol>
         </div>
       </section>
 
-      {/* Construction journey */}
-      <section className="px-6 sm:px-14 lg:px-24 py-20 bg-sand/20">
-        <Reveal><Eyebrow>Construction journey</Eyebrow>
-          <h2 className="font-display text-[clamp(28px,5vw,48px)] tracking-tighter mt-2 max-w-2xl">Four stages, from a drawing to a home.</h2>
-        </Reveal>
-        <div className="mt-10 grid md:grid-cols-2 gap-5">
-          {STAGES.map((st, i) => (
-            <Reveal key={st.n} delay={i * 0.06}>
-              <GlassPanel className="p-6 h-full">
-                <div className="num text-olive text-[13px] font-medium">{st.n}</div>
-                <div className="font-display text-[22px] mt-1">{st.t}</div>
-                <p className="text-stone text-[13.5px] mt-2 leading-relaxed">{st.d}</p>
-              </GlassPanel>
-            </Reveal>
-          ))}
+      {/* Programme to scale */}
+      <section id="programme" className="relative scroll-mt-20 overflow-hidden border-b border-line">
+        <div aria-hidden className="drafting-grid mask-fade-b absolute inset-0 opacity-60" />
+        <div className="relative mx-auto max-w-[1440px] px-6 py-24 sm:px-10 lg:px-16 lg:py-32">
+          <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+            <div>
+              <Reveal><div className="eyebrow flex items-center gap-2"><span className="h-px w-6 bg-accent" />02 · Programme</div></Reveal>
+              <h2 className="display mt-6 text-[clamp(38px,5.4vw,76px)] text-ink">
+                <LineReveal lines={[`${P.stages.length} stages.`, <em key="w" className="italic text-accent">{P.weeks} weeks.</em>]} />
+              </h2>
+            </div>
+            <Reveal delay={0.15}><p className="max-w-[40ch] text-[14px] leading-relaxed text-muted">Drawn to scale from the master programme: {P.activities} activities, from first concept to final handover. Stages overlap where the site allows.</p></Reveal>
+          </div>
+          <Reveal delay={0.1} className="mt-14"><ProgrammeStrip stages={P.stages} weeks={P.weeks} start={P.start} milestones={P.milestones} /></Reveal>
         </div>
       </section>
 
-      {/* Contractor ecosystem */}
-      <section className="px-6 sm:px-14 lg:px-24 py-20 bg-cream">
-        <Reveal><Eyebrow>The contractor ecosystem</Eyebrow>
-          <h2 className="font-display text-[clamp(28px,5vw,48px)] tracking-tighter mt-2">Five trades, one programme.</h2>
-        </Reveal>
-        <div className="mt-10 flex flex-wrap gap-3">
-          {CONTRACTORS.map((c, i) => (
-            <Reveal key={c.n} delay={i * 0.05}>
-              <div className="flex items-center gap-2.5 rounded-full border border-border bg-surface px-4 py-2.5 shadow-e1">
-                <span className="h-3 w-3 rounded-sm" style={{ background: c.c }} />
-                <span className="text-[13px] font-medium text-text-2">{c.n}</span>
-              </div>
-            </Reveal>
-          ))}
+      {/* Trades */}
+      <section id="trades" className="scroll-mt-20 border-b border-line">
+        <div className="mx-auto grid max-w-[1440px] gap-12 px-6 py-24 sm:px-10 lg:grid-cols-[1fr_1.4fr] lg:px-16 lg:py-32">
+          <div>
+            <Reveal><div className="eyebrow flex items-center gap-2"><span className="h-px w-6 bg-accent" />03 · The trades</div></Reveal>
+            <h2 className="display mt-6 text-[clamp(38px,5.4vw,76px)] text-ink">
+              <LineReveal lines={[`${['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'][P.trades.length] ?? P.trades.length} trades.`, <em key="o" className="italic text-accent">One programme.</em>]} />
+            </h2>
+          </div>
+          <ul className="grid grid-cols-1 border-l border-t border-line sm:grid-cols-2">
+            {P.trades.map((t, i) => (
+              <Reveal key={t.key} delay={i * 0.05} className={i === P.trades.length - 1 && P.trades.length % 2 ? 'sm:col-span-2' : undefined}>
+                <li className="flex h-full items-start gap-4 border-b border-r border-line p-6 transition-colors hover:bg-raised">
+                  <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ background: t.color }} />
+                  <div>
+                    <div className="text-[15px] font-medium text-ink">{t.name}</div>
+                    <div className="mt-0.5 text-[13px] text-muted">{t.scope}</div>
+                  </div>
+                </li>
+              </Reveal>
+            ))}
+          </ul>
         </div>
       </section>
 
-      {/* Milestones */}
-      <section className="px-6 sm:px-14 lg:px-24 py-20 bg-bark text-cream">
-        <Reveal><Eyebrow><span className="text-sand">Milestones</span></Eyebrow>
-          <h2 className="font-display text-[clamp(28px,5vw,48px)] font-light mt-2">The road to handover.</h2>
-        </Reveal>
-        <div className="mt-10 flex flex-col gap-0">
-          {MILESTONES.map(([name, date], i) => (
-            <Reveal key={name} delay={i * 0.05}>
-              <div className="flex items-center gap-4 py-4 border-b border-sand/20">
-                <span className="h-2.5 w-2.5 rounded-full bg-brass shrink-0" />
-                <span className="font-display text-[20px] flex-1">{name}</span>
-                <span className="num text-[13px] text-sand">{date}</span>
-              </div>
-            </Reveal>
-          ))}
+      {/* Road to handover — dark cinematic band */}
+      <section className="relative overflow-hidden bg-[#0D0E0C] text-chalk">
+        <div aria-hidden className="grain absolute inset-0" />
+        <div className="relative mx-auto grid max-w-[1440px] gap-12 px-6 py-24 sm:px-10 lg:grid-cols-[1fr_1.4fr] lg:px-16 lg:py-32">
+          <div className="lg:sticky lg:top-28 lg:self-start">
+            <Reveal><div className="eyebrow flex items-center gap-2 text-stone"><span className="h-px w-6 bg-bronze" />04 · Milestones</div></Reveal>
+            <h2 className="display mt-6 text-[clamp(38px,5.4vw,76px)] text-chalk">
+              <LineReveal lines={['The road', <em key="h" className="italic text-bronze">to handover.</em>]} />
+            </h2>
+          </div>
+          <MilestoneRoad milestones={P.milestones} />
+        </div>
+      </section>
+
+      {/* Platform */}
+      <section id="platform" className="scroll-mt-20 border-b border-line">
+        <div className="mx-auto max-w-[1440px] px-6 py-24 sm:px-10 lg:px-16 lg:py-32">
+          <Reveal><div className="eyebrow flex items-center gap-2"><span className="h-px w-6 bg-accent" />05 · The platform</div></Reveal>
+          <h2 className="display mt-6 max-w-[16ch] text-[clamp(38px,5.4vw,76px)] text-ink">
+            <LineReveal lines={['Cinematic to explore.', <em key="e" className="italic text-accent">Effortless to run.</em>]} />
+          </h2>
+          <div className="mt-16 grid grid-cols-1 border-l border-t border-line sm:grid-cols-2 lg:grid-cols-3">
+            {MODULES.map((m, i) => (
+              <Reveal key={m.t} delay={(i % 3) * 0.07}>
+                <div className="group h-full border-b border-r border-line p-7 transition-colors duration-glide hover:bg-raised sm:p-9">
+                  <m.icon size={20} strokeWidth={1.4} className="text-accent transition-transform duration-swoop ease-swoop group-hover:-translate-y-0.5" />
+                  <div className="display mt-8 text-[28px] text-ink">{m.t}</div>
+                  <p className="mt-2 text-[13.5px] leading-relaxed text-muted">{m.d}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="px-6 py-28 bg-cream text-center">
-        <Reveal>
-          <Eyebrow><span className="block text-center">Villa Ajloun · Ajloun, Jordan</span></Eyebrow>
-          <h2 className="font-display text-[clamp(32px,6vw,64px)] tracking-tighter mt-3 max-w-3xl mx-auto">A private operating system for one extraordinary build.</h2>
-          <Link href="/login" className="inline-block mt-8 rounded-full bg-bark text-cream px-7 py-3.5 text-[14px] font-semibold hover:shadow-e4 transition">Enter the platform →</Link>
-        </Reveal>
+      <section className="relative overflow-hidden">
+        <div className="mx-auto max-w-[1440px] px-6 py-28 text-center sm:px-10 lg:py-40">
+          <Reveal><div className="eyebrow">Villa Ajloun · Ajloun, Jordan</div></Reveal>
+          <h2 className="display mx-auto mt-6 max-w-[18ch] text-[clamp(40px,6vw,88px)] text-ink">
+            <LineReveal lines={['A private operating system', <em key="b" className="italic text-accent">for one extraordinary build.</em>]} />
+          </h2>
+          <Reveal delay={0.25} className="mt-10 flex justify-center">
+            <ButtonLink href="/dashboard" variant="primary" size="lg" iconRight={<ArrowRight size={16} />}>Enter the workspace</ButtonLink>
+          </Reveal>
+          <p className="mt-5 text-[12.5px] text-faint">Access is limited to invited project members.</p>
+        </div>
       </section>
 
-      <footer className="px-6 sm:px-14 lg:px-24 py-10 bg-bark text-sand flex flex-wrap items-center justify-between gap-4 text-[12px]">
-        <span>© 2026 Villa Ajloun · Built in Ajloun, Jordan<span className="text-brass">.</span></span>
-        <span className="num">Construction Intelligence Platform</span>
+      <footer className="border-t border-line">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4 px-6 py-8 text-[12px] text-muted sm:px-10 lg:px-16">
+          <span className="display text-[17px] text-ink">Villa <em className="italic text-accent">Master</em></span>
+          <span className="num">Villa Ajloun · {P.start.slice(0, 4)}–{P.handover.slice(0, 4)}</span>
+          <Link href="/login" className="hover:text-ink">Sign in →</Link>
+        </div>
       </footer>
     </main>
   );

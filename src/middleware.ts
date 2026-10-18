@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 // Refreshes the Supabase session on every request and guards /app routes.
@@ -11,7 +11,7 @@ export async function middleware(req: NextRequest) {
     {
       cookies: {
         getAll() { return req.cookies.getAll(); },
-        setAll(list) {
+        setAll(list: { name: string; value: string; options: CookieOptions }[]) {
           list.forEach(({ name, value }) => req.cookies.set(name, value));
           res = NextResponse.next({ request: req });
           list.forEach(({ name, value, options }) => res.cookies.set(name, value, options));
@@ -24,7 +24,7 @@ export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
   // Protected app routes
-  const isApp = ['/dashboard', '/timeline', '/documents', '/contractors', '/map', '/milestones', '/owner', '/team', '/reports', '/activities']
+  const isApp = ['/dashboard', '/timeline', '/documents', '/contractors', '/deliverables', '/map', '/site', '/milestones', '/owner', '/team', '/reports', '/activities']
     .some(p => path === p || path.startsWith(p + '/'));
 
   if (isApp && !user) {
