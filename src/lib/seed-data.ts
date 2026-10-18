@@ -158,3 +158,28 @@ export async function seedDatabase(sb: SupabaseClient) {
 
   return { activities: PHASES.length, deliverables: delivCount, dependencies: depRows.length, milestones: MILESTONES.length, contractors: Object.keys(CONTRACTORS).length };
 }
+
+/**
+ * Public, read-only programme facts derived from the same source as the seed above.
+ * Used by the public landing page (which cannot query the RLS-protected database),
+ * so its figures always match what was seeded.
+ */
+export const PROGRAMME = (() => {
+  const weeks = Math.max(...PHASES.map(p => p.start + p.dur));
+  const stageWeeks = STAGES.map(s => {
+    const ph = PHASES.filter(p => parseInt(p.stage.replace('Stage ', ''), 10) === s.ord);
+    const from = Math.min(...ph.map(p => p.start)), to = Math.max(...ph.map(p => p.start + p.dur));
+    return { ord: s.ord, name: s.name.replace(/^Stage \d — /, ''), from, to, activities: ph.length };
+  });
+  const trades = Object.entries(CONTRACTORS).filter(([k]) => k !== 'all').map(([key, c]) => ({ key, ...c }));
+  return {
+    start: iso(START),
+    handover: iso(new Date(MILESTONES[MILESTONES.length - 1].date)),
+    weeks,
+    activities: PHASES.length,
+    stages: stageWeeks,
+    buildings: BUILDINGS,
+    trades,
+    milestones: MILESTONES.map(m => ({ name: m.name, date: iso(new Date(m.date)) })),
+  };
+})();

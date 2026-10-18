@@ -1,45 +1,39 @@
 /**
  * GET /api/insight
- * Returns a single, freshly-generated "editor's note" paragraph for the
- * dashboard Smart Insight panel. Non-streaming JSON — used by React Query.
+ * One short "editor's note" paragraph about the project, written by Claude from the
+ * caller's live, RLS-scoped project snapshot. Returns { paragraph, generated }.
+ * Without an API key it returns { paragraph: null, generated: false, reason } —
+ * it never substitutes invented text.
  */
 import { anthropic, ANTHROPIC_MODEL } from '@/lib/anthropic';
-import { DEMO_SNAPSHOT, snapshotForSystem } from '@/lib/project-context';
+import { createClient } from '@/lib/supabase/server';
+import { getLiveSnapshotText } from '@/lib/project-data';
 
 export const runtime = 'nodejs';
-export const revalidate = 60; // cache 60s
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    // Fallback so the UI never breaks in dev.
-    return Response.json({
-      cached: false,
-      paragraph:
-        'Week 28. Foundations on schedule. KONN remains the bottleneck on shop drawings — three approvals slipped by an average of 2.1 days. The next owner decision is the stair stone finish, due Jul 3.',
-      generated: false,
-    });
-  }
+  const sb = await createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return Response.json({ paragraph: null, generated: false, reason: 'unauthorized' }, { status: 401 });
+  if (!process.env.ANTHROPIC_API_KEY) return Response.json({ paragraph: null, generated: false, reason: 'not_configured' });
 
-  const system = `You write the Smart Insight panel for the Villa Ajloun dashboard.
-Tone: Financial Times dispatch. One paragraph, 3–4 sentences, ≤ 70 words.
-Be specific: cite week numbers, contractor names, deliverable titles, dates.
-Do not use emoji, lists, headings, or markdown. Plain prose only.
-
-CURRENT STATE:
-${snapshotForSystem(DEMO_SNAPSHOT)}`;
-
+  const { text } = await getLiveSnapshotText();
   const out = await anthropic.messages.create({
     model: ANTHROPIC_MODEL,
     max_tokens: 220,
-    system,
-    messages: [{ role: 'user', content: 'Write today\'s insight paragraph.' }],
+    system: `You write the insight note for the Villa Ajloun project dashboard.
+Tone: Financial Times dispatch. One paragraph, 3–4 sentences, ≤ 70 words.
+Use only facts in the snapshot; cite activity names, contractors and dates. No emoji, lists, headings or markdown.
+
+CURRENT STATE:
+${text}`,
+    messages: [{ role: 'user', content: "Write today's insight paragraph." }],
   });
 
-  const text = out.content
-    .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
-    .map(b => b.text)
-    .join('')
-    .trim();
+  const paragraph = out.content
+    .filter((b): b is Extract<typeof b, { type: 'text' }> => b.type === 'text')
+    .map(b => b.text).join('').trim();
 
-  return Response.json({ paragraph: text, generated: true });
+  return Response.json({ paragraph, generated: true });
 }

@@ -1,3 +1,5 @@
+> **Update:** `/site` now includes a working in-browser model viewer (`src/components/bim/ModelCanvas.tsx`, plain three.js) for GLB, glTF, FBX, OBJ(+MTL), STL, PLY, DAE and 3MF, with *Save to project* via Supabase Storage. The Speckle integration below remains optional.
+
 # BIM Viewer Integration — Decision Brief
 
 > Where the "Site & BIM" scene becomes a real 3D model of Villa Ajloun.

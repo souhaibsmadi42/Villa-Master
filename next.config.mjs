@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Don't fail the production build on lint/type nits — ship first, refine later.
+  // The repo has no ESLint config yet; type errors still fail the build.
   eslint: { ignoreDuringBuilds: true },
-  typescript: { ignoreBuildErrors: true },
+  typescript: { ignoreBuildErrors: false },
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion'],
   },

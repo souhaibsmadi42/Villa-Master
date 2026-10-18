@@ -1,10 +1,14 @@
 import { createClient } from '@/lib/supabase/server';
 import { getSessionProfile } from '@/lib/rbac';
-import { GlassPanel } from '@/components/ui/GlassPanel';
-import { Eyebrow } from '@/components/ui/Eyebrow';
+import { fmtDate } from '@/lib/format';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { Panel } from '@/components/ui/Panel';
+import { EmptyState } from '@/components/ui/States';
+import { Reveal } from '@/components/marketing/Reveal';
 import { ReportGenerator } from '@/components/reports/ReportGenerator';
 
 export const dynamic = 'force-dynamic';
+export const metadata = { title: 'Reports' };
 
 export default async function ReportsPage() {
   const sb = await createClient();
@@ -15,26 +19,24 @@ export default async function ReportsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <Eyebrow>Villa Ajloun · Reports</Eyebrow>
-        <h1 className="font-display text-[clamp(28px,4vw,44px)] tracking-tighter mt-1">Weekly Reports</h1>
-        <p className="text-stone text-[13px]">AI-drafted owner updates from live project data.</p>
-      </div>
-
+      <PageHeader kicker="Oversight" title={<>Weekly <em className="italic text-accent">reports</em></>}
+        sub="Owner updates drafted from live project data — an archive of how the build has moved, week by week." />
       <ReportGenerator canGenerate={canGenerate} />
-
-      <div className="flex flex-col gap-4">
-        {(reports ?? []).map(r => (
-          <GlassPanel key={r.id} className="p-6">
-            <div className="flex items-center justify-between">
-              <Eyebrow>Week of {r.week_of}</Eyebrow>
-              <span className="num text-[11px] text-stone">{new Date(r.created_at).toLocaleDateString()}</span>
-            </div>
-            <p className="mt-3 text-[14px] text-text-2 leading-relaxed whitespace-pre-wrap">{r.summary_md}</p>
-          </GlassPanel>
+      <ol className="flex flex-col">
+        {(reports ?? []).map((r, i) => (
+          <Reveal key={r.id} delay={Math.min(i, 4) * 0.05}>
+            <li className="grid gap-4 border-b border-line py-8 md:grid-cols-[220px_1fr]">
+              <div>
+                <div className="eyebrow text-[9.5px]">Week of</div>
+                <div className="display mt-1 text-[28px] text-ink">{fmtDate(r.week_of, { day: 'numeric', month: 'short' })}</div>
+                <div className="num text-[11px] text-faint">{fmtDate(r.week_of, { year: 'numeric' })} · written {fmtDate(r.created_at, { day: 'numeric', month: 'short' })}</div>
+              </div>
+              <p className="max-w-[68ch] whitespace-pre-line text-[14.5px] leading-[1.75] text-ink-2">{r.summary_md}</p>
+            </li>
+          </Reveal>
         ))}
-        {(!reports || reports.length === 0) && <p className="text-stone italic">No reports yet{canGenerate ? ' — generate one above.' : '.'}</p>}
-      </div>
+      </ol>
+      {(!reports || reports.length === 0) && <Panel><EmptyState title="No reports yet" body={canGenerate ? 'Generate the first weekly update above.' : 'Reports appear here once the team publishes them.'} /></Panel>}
     </div>
   );
 }

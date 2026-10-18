@@ -1,3 +1,5 @@
+> **Update:** the assistant and `/api/insight` are now grounded in live data. `getLiveSnapshotText()` in `src/lib/project-data.ts` builds an RLS-scoped snapshot per request; `DEMO_SNAPSHOT` / `lib/project-context.ts` have been removed. The sections below that mention them are historical.
+
 # AI Project Assistant — Wiring
 
 The assistant is the difference between "a construction app" and "an operating system." This doc explains exactly how it's wired, what it can already do, and where it grows.
